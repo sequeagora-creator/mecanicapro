@@ -825,19 +825,36 @@ function addOrcItem(tipo){
   renderOrcLists();
 }
 function renderOrcLists(){
-  document.getElementById('orc-servicos-list').innerHTML=orcServicos.length===0?'<p class="text-muted text-sm mb-1">Nenhum serviço</p>':
-    orcServicos.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
-      <input style="flex:1" placeholder="Descrição do serviço" value="${s.desc}" oninput="orcServicos[${i}].desc=this.value">
-      <input style="width:120px" type="number" step="0.01" placeholder="Valor" value="${s.valor}" oninput="orcServicos[${i}].valor=parseFloat(this.value||0);calcTotalOrc()">
-      <button class="btn btn-danger btn-sm btn-icon" onclick="orcServicos.splice(${i},1);renderOrcLists()"><i class="fas fa-times"></i></button>
-    </div>`).join('');
-  document.getElementById('orc-pecas-list').innerHTML=orcPecas.length===0?'<p class="text-muted text-sm mb-1">Nenhuma peça</p>':
-    orcPecas.map((p,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
-      <input style="flex:1" placeholder="Nome da peça" value="${p.desc}" oninput="orcPecas[${i}].desc=this.value">
-      <input style="width:70px" type="number" placeholder="Qtd" value="${p.qtd}" oninput="orcPecas[${i}].qtd=parseInt(this.value||1);calcTotalOrc()">
-      <input style="width:120px" type="number" step="0.01" placeholder="Valor unit." value="${p.valor}" oninput="orcPecas[${i}].valor=parseFloat(this.value||0);calcTotalOrc()">
-      <button class="btn btn-danger btn-sm btn-icon" onclick="orcPecas.splice(${i},1);renderOrcLists();calcTotalOrc()"><i class="fas fa-times"></i></button>
-    </div>`).join('');
+  const sd=document.getElementById('orc-servicos-list');
+  const pd=document.getElementById('orc-pecas-list');
+  if(sd){
+    sd.innerHTML=orcServicos.length===0?'<p class="text-muted text-sm mb-1">Nenhum serviço</p>':
+      orcServicos.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+        <input style="flex:1" placeholder="Descrição do serviço" value="${s.desc||''}" data-type="orc-serv-desc" data-idx="${i}">
+        <input style="width:120px" type="number" step="0.01" placeholder="Valor" value="${s.valor||0}" data-type="orc-serv-val" data-idx="${i}">
+        <button class="btn btn-danger btn-sm btn-icon" data-type="orc-serv-del" data-idx="${i}"><i class="fas fa-times"></i></button>
+      </div>`).join('');
+  }
+  if(pd){
+    pd.innerHTML=orcPecas.length===0?'<p class="text-muted text-sm mb-1">Nenhuma peça</p>':
+      orcPecas.map((p,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+        <input style="flex:1" placeholder="Nome da peça" value="${p.desc||''}" data-type="orc-peca-desc" data-idx="${i}">
+        <input style="width:70px" type="number" placeholder="Qtd" value="${p.qtd||1}" data-type="orc-peca-qtd" data-idx="${i}">
+        <input style="width:120px" type="number" step="0.01" placeholder="Valor unit." value="${p.valor||0}" data-type="orc-peca-val" data-idx="${i}">
+        <button class="btn btn-danger btn-sm btn-icon" data-type="orc-peca-del" data-idx="${i}"><i class="fas fa-times"></i></button>
+      </div>`).join('');
+  }
+  // Bind events
+  document.querySelectorAll('[data-type^="orc-"]').forEach(el=>{
+    const t=el.dataset.type, i=parseInt(el.dataset.idx);
+    if(t==='orc-serv-desc') el.oninput=e=>{orcServicos[i].desc=e.target.value};
+    if(t==='orc-serv-val') el.oninput=e=>{orcServicos[i].valor=parseFloat(e.target.value||0);calcTotalOrc()};
+    if(t==='orc-serv-del') el.onclick=()=>{orcServicos.splice(i,1);renderOrcLists();calcTotalOrc()};
+    if(t==='orc-peca-desc') el.oninput=e=>{orcPecas[i].desc=e.target.value};
+    if(t==='orc-peca-qtd') el.oninput=e=>{orcPecas[i].qtd=parseInt(e.target.value||1);calcTotalOrc()};
+    if(t==='orc-peca-val') el.oninput=e=>{orcPecas[i].valor=parseFloat(e.target.value||0);calcTotalOrc()};
+    if(t==='orc-peca-del') el.onclick=()=>{orcPecas.splice(i,1);renderOrcLists();calcTotalOrc()};
+  });
   calcTotalOrc();
 }
 function calcTotalOrc(){
@@ -1002,19 +1019,36 @@ function addOSItem(tipo){
   renderOSLists();
 }
 function renderOSLists(){
-  document.getElementById('os-servicos-list').innerHTML=osServicos.length===0?'<p class="text-muted text-sm mb-1">Nenhum serviço</p>':
-    osServicos.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
-      <input style="flex:1" placeholder="Descrição do serviço" value="${s.desc}" oninput="osServicos[${i}].desc=this.value">
-      <input style="width:120px" type="number" step="0.01" placeholder="Valor" value="${s.valor}" oninput="osServicos[${i}].valor=parseFloat(this.value||0);calcTotalOS()">
-      <button class="btn btn-danger btn-sm btn-icon" onclick="osServicos.splice(${i},1);renderOSLists()"><i class="fas fa-times"></i></button>
-    </div>`).join('');
-  document.getElementById('os-pecas-list').innerHTML=osPecas.length===0?'<p class="text-muted text-sm mb-1">Nenhuma peça</p>':
-    osPecas.map((p,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
-      <input style="flex:1" placeholder="Nome da peça" value="${p.desc}" oninput="osPecas[${i}].desc=this.value">
-      <input style="width:70px" type="number" placeholder="Qtd" value="${p.qtd}" oninput="osPecas[${i}].qtd=parseInt(this.value||1);calcTotalOS()">
-      <input style="width:120px" type="number" step="0.01" placeholder="Valor unit." value="${p.valor}" oninput="osPecas[${i}].valor=parseFloat(this.value||0);calcTotalOS()">
-      <button class="btn btn-danger btn-sm btn-icon" onclick="osPecas.splice(${i},1);renderOSLists();calcTotalOS()"><i class="fas fa-times"></i></button>
-    </div>`).join('');
+  const sd=document.getElementById('os-servicos-list');
+  const pd=document.getElementById('os-pecas-list');
+  if(sd){
+    sd.innerHTML=osServicos.length===0?'<p class="text-muted text-sm mb-1">Nenhum serviço</p>':
+      osServicos.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+        <input style="flex:1" placeholder="Descrição do serviço" value="${s.desc||''}" data-type="os-serv-desc" data-idx="${i}">
+        <input style="width:120px" type="number" step="0.01" placeholder="Valor" value="${s.valor||0}" data-type="os-serv-val" data-idx="${i}">
+        <button class="btn btn-danger btn-sm btn-icon" data-type="os-serv-del" data-idx="${i}"><i class="fas fa-times"></i></button>
+      </div>`).join('');
+  }
+  if(pd){
+    pd.innerHTML=osPecas.length===0?'<p class="text-muted text-sm mb-1">Nenhuma peça</p>':
+      osPecas.map((p,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+        <input style="flex:1" placeholder="Nome da peça" value="${p.desc||''}" data-type="os-peca-desc" data-idx="${i}">
+        <input style="width:70px" type="number" placeholder="Qtd" value="${p.qtd||1}" data-type="os-peca-qtd" data-idx="${i}">
+        <input style="width:120px" type="number" step="0.01" placeholder="Valor unit." value="${p.valor||0}" data-type="os-peca-val" data-idx="${i}">
+        <button class="btn btn-danger btn-sm btn-icon" data-type="os-peca-del" data-idx="${i}"><i class="fas fa-times"></i></button>
+      </div>`).join('');
+  }
+  // Bind events
+  document.querySelectorAll('[data-type^="os-"]').forEach(el=>{
+    const t=el.dataset.type, i=parseInt(el.dataset.idx);
+    if(t==='os-serv-desc') el.oninput=e=>{osServicos[i].desc=e.target.value};
+    if(t==='os-serv-val') el.oninput=e=>{osServicos[i].valor=parseFloat(e.target.value||0);calcTotalOS()};
+    if(t==='os-serv-del') el.onclick=()=>{osServicos.splice(i,1);renderOSLists();calcTotalOS()};
+    if(t==='os-peca-desc') el.oninput=e=>{osPecas[i].desc=e.target.value};
+    if(t==='os-peca-qtd') el.oninput=e=>{osPecas[i].qtd=parseInt(e.target.value||1);calcTotalOS()};
+    if(t==='os-peca-val') el.oninput=e=>{osPecas[i].valor=parseFloat(e.target.value||0);calcTotalOS()};
+    if(t==='os-peca-del') el.onclick=()=>{osPecas.splice(i,1);renderOSLists();calcTotalOS()};
+  });
   calcTotalOS();
 }
 function calcTotalOS(){
