@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MecânicaPro – Gestão de Oficina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f0f;--bg2:#1a1a1a;--bg3:#242424;--bg4:#2e2e2e;
+  --border:#333;--border2:#444;
+  --text:#e8e8e8;--text2:#a0a0a0;--text3:#666;
+  --accent:#f59e0b;--accent2:#d97706;--accent3:#fbbf24;
+  --blue:#3b82f6;--green:#22c55e;--red:#ef4444;--purple:#a855f7;--orange:#f97316;
+  --radius:8px;--radius2:12px;--radius3:16px;
+  --shadow:0 2px 8px rgba(0,0,0,.4);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;font-size:14px;line-height:1.5}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit;font-size:14px}
+input,select,textarea{font-family:inherit;font-size:14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:8px 12px;width:100%;outline:none;transition:border .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select option{background:var(--bg3)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.form-group{margin-bottom:16px}
+h1{font-size:22px;font-weight:700}
+h2{font-size:18px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+
+/* SIDEBAR */
+#sidebar{width:220px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:100;transition:transform .3s}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo .logo-icon{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#000;font-size:18px;margin-bottom:8px}
+.sidebar-logo span{font-size:15px;font-weight:700;display:block}
+.sidebar-logo small{font-size:11px;color:var(--text3)}
+nav{flex:1;padding:12px 8px;overflow-y:auto}
+nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius);color:var(--text2);font-size:13px;font-weight:500;margin-bottom:2px;transition:all .15s}
+nav a:hover{background:var(--bg3);color:var(--text)}
+nav a.active{background:rgba(245,158,11,.12);color:var(--accent);border-left:3px solid var(--accent)}
+nav a i{width:18px;text-align:center;font-size:15px}
+nav .nav-section{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:12px 12px 4px}
+.sidebar-user{padding:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#000;flex-shrink:0}
+
+/* MAIN */
+#main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+#topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50}
+.topbar-title{font-weight:600;font-size:15px;flex:1}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:6px 14px;width:280px}
+.search-box input{background:none;border:none;padding:0;width:100%;font-size:13px}
+.search-box i{color:var(--text3);font-size:13px}
+#content{padding:24px;flex:1}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:20px}
+.card-sm{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:16px 20px;display:flex;flex-direction:column;gap:4px}
+.stat-card .stat-label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+.stat-card .stat-value{font-size:26px;font-weight:700;line-height:1.1}
+.stat-card .stat-sub{font-size:11px;color:var(--text2)}
+.stat-card .stat-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:8px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);font-weight:500;font-size:13px;border:none;transition:all .15s;cursor:pointer}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.btn-danger:hover{background:rgba(239,68,68,.25)}
+.btn-success{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{width:32px;height:32px;padding:0;justify-content:center;border-radius:var(--radius)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-yellow{background:rgba(245,158,11,.15);color:#f59e0b}
+.badge-green{background:rgba(34,197,94,.15);color:#22c55e}
+.badge-red{background:rgba(239,68,68,.15);color:#ef4444}
+.badge-blue{background:rgba(59,130,246,.15);color:#3b82f6}
+.badge-purple{background:rgba(168,85,247,.15);color:#a855f7}
+.badge-orange{background:rgba(249,115,22,.15);color:#f97316}
+.badge-gray{background:rgba(100,100,100,.2);color:var(--text2)}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius2)}
+table{width:100%;border-collapse:collapse}
+table th{background:var(--bg3);font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+table td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;vertical-align:middle}
+table tr:last-child td{border-bottom:none}
+table tr:hover td{background:rgba(255,255,255,.02)}
+.table-actions{display:flex;gap:6px;justify-content:flex-end}
+
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius3);width:100%;max-width:740px;max-height:90vh;overflow-y:auto}
+.modal-lg{max-width:900px}
+.modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-body{padding:0 24px 20px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.section-divider{border-top:1px solid var(--border);margin:20px 0}
+.section-title{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+
+/* PAGE HEADER */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.page-header h2{display:flex;align-items:center;gap:10px}
+.page-header h2 i{color:var(--accent)}
+
+/* FILTERS */
+.filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filter-select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 12px;color:var(--text);font-size:12px;width:auto;cursor:pointer}
+
+/* DASHBOARD QUICK SEARCH */
+.quick-search{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;margin-bottom:24px}
+.quick-search h3{margin-bottom:12px;color:var(--text2)}
+.quick-search-input{display:flex;gap:10px}
+.quick-search-input input{flex:1}
+
+/* TIMELINE */
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:1px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:16px}
+.timeline-item::before{content:'';position:absolute;left:-20px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--accent);border:2px solid var(--bg2)}
+
+/* LOGIN */
+#login-page{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{width:380px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius3);padding:40px}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .logo-big{width:56px;height:56px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px;color:#000}
+
+/* PRINT */
+.print-doc{display:none}
+@media print{
+  body *{visibility:hidden}
+  .print-area,.print-area *{visibility:visible}
+  .print-area{position:fixed;inset:0;background:#fff;color:#000;padding:20mm;font-family:'Inter',sans-serif}
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* MOBILE TOGGLE */
+.menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99}
+
+@media(max-width:768px){
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.open{display:block}
+  #main{margin-left:0}
+  .menu-toggle{display:block}
+  .grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr 1fr}
+  .search-box{display:none}
+  #content{padding:16px}
+  .grid-5{grid-template-columns:1fr 1fr}
+}
+@media(max-width:480px){
+  .grid-2,.grid-3,.grid-4,.grid-5{grid-template-columns:1fr}
+}
+
+/* UTILS */
+.text-accent{color:var(--accent)}
+.text-muted{color:var(--text2)}
+.text-sm{font-size:12px}
+.text-right{text-align:right}
+.flex{display:flex}
+.flex-center{display:flex;align-items:center}
+.gap-2{gap:8px}
+.gap-3{gap:12px}
+.mb-1{margin-bottom:8px}
+.mb-2{margin-bottom:16px}
+.mt-2{margin-top:16px}
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-state i{font-size:40px;margin-bottom:12px;color:var(--bg4)}
+.tag{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--text2)}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.info-row{display:flex;align-items:baseline;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.info-row:last-child{border-bottom:none}
+.info-row .label{font-size:12px;color:var(--text3)}
+.info-row .value{font-size:13px;font-weight:500}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+<div class="login-box">
+  <div class="login-logo">
+    <div class="logo-big"><i class="fas fa-wrench"></i></div>
+    <h2>MecânicaPro</h2>
+    <p class="text-muted text-sm">Gestão de Oficina Mecânica</p>
+  </div>
+  <div class="form-group">
+    <label>Usuário</label>
+    <input type="text" id="login-user" value="admin" placeholder="admin">
+  </div>
+  <div class="form-group">
+    <label>Senha</label>
+    <input type="password" id="login-pass" value="1234" placeholder="1234">
+  </div>
+  <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">
+    <i class="fas fa-sign-in-alt"></i> Entrar
+  </button>
+  <p class="text-muted text-sm mt-2" style="text-align:center">Usuário: admin / Senha: 1234</p>
+</div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="fas fa-wrench"></i></div>
+    <span>MecânicaPro</span>
+    <small>Gestão de Oficina</small>
+  </div>
+  <nav>
+    <span class="nav-section">Principal</span>
+    <a href="javascript:void(0)" onclick="nav('dashboard')" id="nav-dashboard" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    <a href="javascript:void(0)" onclick="nav('clientes')" id="nav-clientes"><i class="fas fa-users"></i> Clientes</a>
+    <a href="javascript:void(0)" onclick="nav('veiculos')" id="nav-veiculos"><i class="fas fa-car"></i> Veículos</a>
+    <span class="nav-section">Atendimento</span>
+    <a href="javascript:void(0)" onclick="nav('orcamentos')" id="nav-orcamentos"><i class="fas fa-file-alt"></i> Orçamentos</a>
+    <a href="javascript:void(0)" onclick="nav('ordens')" id="nav-ordens"><i class="fas fa-clipboard-list"></i> Ordens de Serviço</a>
+    <span class="nav-section">Controle</span>
+    <a href="javascript:void(0)" onclick="nav('garantias')" id="nav-garantias"><i class="fas fa-shield-alt"></i> Garantias</a>
+    <a href="javascript:void(0)" onclick="nav('historico')" id="nav-historico"><i class="fas fa-history"></i> Histórico</a>
+    <a href="javascript:void(0)" onclick="nav('relatorios')" id="nav-relatorios"><i class="fas fa-chart-bar"></i> Relatórios</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar">A</div>
+    <div>
+      <div style="font-size:12px;font-weight:600">Admin</div>
+      <div style="font-size:11px;color:var(--text3)">Administrador</div>
+    </div>
+    <button class="btn btn-ghost btn-sm btn-icon" style="margin-left:auto" onclick="doLogout()" title="Sair">
+      <i class="fas fa-sign-out-alt"></i>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main" style="display:none">
+  <div id="topbar">
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <span class="topbar-title" id="topbar-title">Dashboard</span>
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" placeholder="Buscar placa, cliente, OS..." id="global-search" onkeyup="globalSearch(event)">
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<!-- PRINT AREA -->
+<div id="print-area" class="print-area" style="display:none"></div>
+
+<script type="module">
+// ==================== FIREBASE ====================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCfWIfiCENfprG277M9NPtv5B5Az1gBx4s",
+  authDomain: "mecanicapro-186bb.firebaseapp.com",
+  projectId: "mecanicapro-186bb",
+  storageBucket: "mecanicapro-186bb.firebasestorage.app",
+  messagingSenderId: "979165536534",
+  appId: "1:979165536534:web:4a9d35f94ca773c85af037"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Cache local para performance
+const cache = { clientes:[], veiculos:[], orcamentos:[], ordens:[], garantias:[] };
+
+// ==================== DB ====================
+const DB = {
+  // Leitura do cache local
+  clientes(){ return cache.clientes },
+  veiculos(){ return cache.veiculos },
+  orcamentos(){ return cache.orcamentos },
+  ordens(){ return cache.ordens },
+  garantias(){ return cache.garantias },
+
+  // Carrega coleção do Firestore para o cache
+  async load(col){
+    const snap = await getDocs(collection(db, col));
+    cache[col] = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    return cache[col];
+  },
+
+  // Salva um documento no Firestore e atualiza cache
+  async save(col, item){
+    await setDoc(doc(db, col, item.id), item);
+    const idx = cache[col].findIndex(x => x.id === item.id);
+    if(idx >= 0) cache[col][idx] = item;
+    else cache[col].push(item);
+  },
+
+  // Remove um documento do Firestore e do cache
+  async remove(col, id){
+    await deleteDoc(doc(db, col, id));
+    cache[col] = cache[col].filter(x => x.id !== id);
+  },
+
+  // Gera próximo número sequencial (ex: OS0001)
+  async nextId(prefix){
+    const ref = doc(db, 'sequencias', prefix);
+    const snap = await getDoc(ref);
+    const n = (snap.exists() ? snap.data().n : 0) + 1;
+    await setDoc(ref, { n });
+    return prefix + String(n).padStart(4, '0');
+  },
+
+  // Salva lista inteira substituindo documentos (usado no save individual agora)
+  async saveClientes(list){ for(const item of list) await this.save('clientes', item) },
+  async saveVeiculos(list){ for(const item of list) await this.save('veiculos', item) },
+  async saveOrcamentos(list){ for(const item of list) await this.save('orcamentos', item) },
+  async saveOrdens(list){ for(const item of list) await this.save('ordens', item) },
+  async saveGarantias(list){ for(const item of list) await this.save('garantias', item) },
+};
+
+// ==================== AUTH ====================
+async function doLogin(){
+  const u=document.getElementById('login-user').value;
+  const p=document.getElementById('login-pass').value;
+  if(u==='admin'&&p==='1234'){
+    const btn = document.querySelector('#login-page .btn-primary');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+    btn.disabled = true;
+    try {
+      await loadAllData();
+      document.getElementById('login-page').style.display='none';
+      document.getElementById('main').style.display='flex';
+      nav('dashboard');
+    } catch(e) {
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+      btn.disabled = false;
+      alert('Erro ao conectar ao banco de dados. Verifique sua conexão e tente novamente.\n\n' + e.message);
+    }
+  } else {
+    alert('Usuário ou senha incorretos.');
+  }
+}
+async function loadAllData(){
+  await Promise.all([
+    DB.load('clientes'),
+    DB.load('veiculos'),
+    DB.load('orcamentos'),
+    DB.load('ordens'),
+    DB.load('garantias'),
+  ]);
+}
+async function reloadAndRender(page){
+  await loadAllData();
+  nav(page||currentPage);
+}
+function doLogout(){
+  document.getElementById('login-page').style.display='flex';
+  document.getElementById('main').style.display='none';
+}
+document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+// ==================== NAV ====================
+let currentPage='';
+function nav(page){
+  currentPage=page;
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  const el=document.getElementById('nav-'+page);
+  if(el)el.classList.add('active');
+  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios'};
+  document.getElementById('topbar-title').textContent=titles[page]||page;
+  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios};
+  if(pages[page])pages[page]();
+  closeSidebar();
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+// ==================== HELPERS ====================
+function fmt(v){return parseFloat(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function fmtDate(d){if(!d)return '-';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function today(){return new Date().toISOString().split('T')[0]}
+function addDays(d,n){const dt=new Date(d);dt.setDate(dt.getDate()+n);return dt.toISOString().split('T')[0]}
+function diffDays(a,b){return Math.round((new Date(b)-new Date(a))/(1000*60*60*24))}
+function statusOS(s){
+  const m={aberta:'badge-yellow',aprovada:'badge-blue',execucao:'badge-purple',aguardando:'badge-orange',finalizada:'badge-green',entregue:'badge-gray',cancelada:'badge-red'};
+  const l={aberta:'Aberta',aprovada:'Aprovada',execucao:'Em Execução',aguardando:'Ag. Peça',finalizada:'Finalizada',entregue:'Entregue',cancelada:'Cancelada'};
+  return `<span class="badge ${m[s]||'badge-gray'}">${l[s]||s}</span>`;
+}
+function statusOrc(s){
+  const m={pendente:'badge-yellow',aprovado:'badge-green',recusado:'badge-red'};
+  const l={pendente:'Pendente',aprovado:'Aprovado',recusado:'Recusado'};
+  return `<span class="badge ${m[s]||'badge-gray'}">${l[s]||s}</span>`;
+}
+function nomeCliente(id){const c=DB.clientes().find(x=>x.id===id);return c?c.nome:'-'}
+function placaVeiculo(id){const v=DB.veiculos().find(x=>x.id===id);return v?v.placa:'-'}
+function descVeiculo(id){const v=DB.veiculos().find(x=>x.id===id);return v?`${v.marca} ${v.modelo} (${v.placa})`:'-'}
+function set(id,v){const e=document.getElementById(id);if(e)e.value=v}
+function get(id){const e=document.getElementById(id);return e?e.value.trim():''}
+function toast(msg,type='success'){
+  const t=document.createElement('div');
+  t.style.cssText=`position:fixed;bottom:24px;right:24px;background:${type==='success'?'var(--green)':'var(--red)'};color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;box-shadow:var(--shadow)`;
+  t.textContent=msg;document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+function confirm2(msg){return confirm(msg)}
+function openModal(html){
+  closeModal();
+  const o=document.createElement('div');
+  o.className='modal-overlay';o.id='modal-overlay';
+  o.innerHTML=html;
+  document.body.appendChild(o);
+  o.addEventListener('click',e=>{if(e.target===o)closeModal()});
+}
+function closeModal(){const m=document.getElementById('modal-overlay');if(m)m.remove()}
+
+// ==================== DASHBOARD ====================
+function renderDashboard(){
+  const os=DB.ordens();
+  const orc=DB.orcamentos();
+  const gar=DB.garantias();
+  const abertas=os.filter(x=>x.status==='aberta').length;
+  const aprovadas=os.filter(x=>x.status==='aprovada').length;
+  const execucao=os.filter(x=>x.status==='execucao').length;
+  const finalizadas=os.filter(x=>x.status==='finalizada').length;
+  const orcPend=orc.filter(x=>x.status==='pendente').length;
+  const t=today();
+  const garVenc=gar.filter(x=>{const d=diffDays(t,x.dataFim);return d>=0&&d<=30&&x.status==='ativa'}).length;
+  const faturamento=os.filter(x=>['finalizada','entregue'].includes(x.status)).reduce((a,b)=>a+(parseFloat(b.total)||0),0);
+  document.getElementById('content').innerHTML=`
+  <div class="quick-search mb-2">
+    <h3><i class="fas fa-search text-accent"></i> Busca Rápida</h3>
+    <div class="quick-search-input">
+      <input type="text" id="qs-input" placeholder="Buscar por placa, cliente, telefone ou número da OS..." onkeyup="quickSearchDash()">
+      <button class="btn btn-primary" onclick="quickSearchDash()"><i class="fas fa-search"></i> Buscar</button>
+    </div>
+    <div id="qs-results" style="margin-top:12px"></div>
+  </div>
+  <div class="grid-5 mb-2">
+    <div class="stat-card" style="cursor:pointer" onclick="nav('ordens')">
+      <div class="stat-icon" style="background:rgba(245,158,11,.15);color:var(--accent)"><i class="fas fa-clipboard-list"></i></div>
+      <div class="stat-label">OS Abertas</div>
+      <div class="stat-value text-accent">${abertas}</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('orcamentos')">
+      <div class="stat-icon" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="fas fa-file-alt"></i></div>
+      <div class="stat-label">Orçamentos</div>
+      <div class="stat-value" style="color:var(--blue)">${orcPend}</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('ordens')">
+      <div class="stat-icon" style="background:rgba(168,85,247,.15);color:var(--purple)"><i class="fas fa-tools"></i></div>
+      <div class="stat-label">Em Execução</div>
+      <div class="stat-value" style="color:var(--purple)">${execucao}</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('ordens')">
+      <div class="stat-icon" style="background:rgba(34,197,94,.15);color:var(--green)"><i class="fas fa-check-circle"></i></div>
+      <div class="stat-label">Finalizadas</div>
+      <div class="stat-value" style="color:var(--green)">${finalizadas}</div>
+    </div>
+    <div class="stat-card" style="cursor:pointer" onclick="nav('garantias')">
+      <div class="stat-icon" style="background:rgba(239,68,68,.15);color:var(--red)"><i class="fas fa-shield-alt"></i></div>
+      <div class="stat-label">Garantias Venc.</div>
+      <div class="stat-value" style="color:var(--red)">${garVenc}</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3 class="mb-2"><i class="fas fa-clock text-accent"></i> Últimas Ordens de Serviço</h3>
+      ${os.length===0?'<div class="empty-state"><i class="fas fa-clipboard"></i><p>Nenhuma ordem ainda</p></div>':
+        `<div class="table-wrap"><table>
+        <tr><th>OS</th><th>Cliente</th><th>Veículo</th><th>Status</th></tr>
+        ${os.slice(-5).reverse().map(o=>`<tr style="cursor:pointer" onclick="abrirOS('${o.id}')">
+          <td><span class="text-accent">${o.numero}</span></td>
+          <td>${nomeCliente(o.clienteId)}</td>
+          <td><span class="tag">${placaVeiculo(o.veiculoId)}</span></td>
+          <td>${statusOS(o.status)}</td>
+        </tr>`).join('')}
+        </table></div>`}
+    </div>
+    <div class="card">
+      <h3 class="mb-2"><i class="fas fa-chart-line text-accent"></i> Resumo Financeiro</h3>
+      <div class="info-row"><span class="label">Faturamento total</span><span class="value" style="color:var(--green)">${fmt(faturamento)}</span></div>
+      <div class="info-row"><span class="label">Total de clientes</span><span class="value">${DB.clientes().length}</span></div>
+      <div class="info-row"><span class="label">Total de veículos</span><span class="value">${DB.veiculos().length}</span></div>
+      <div class="info-row"><span class="label">Ordens aprovadas</span><span class="value">${aprovadas}</span></div>
+      <div class="info-row"><span class="label">Total de orçamentos</span><span class="value">${orc.length}</span></div>
+      ${garVenc>0?`<div class="mt-2"><span class="badge badge-red"><i class="fas fa-exclamation-triangle"></i> ${garVenc} garantia(s) vencem em 30 dias</span></div>`:''}
+    </div>
+  </div>`;
+}
+function quickSearchDash(){
+  const q=document.getElementById('qs-input').value.toLowerCase();
+  if(q.length<2){document.getElementById('qs-results').innerHTML='';return}
+  const res=[];
+  DB.clientes().forEach(c=>{
+    if(c.nome.toLowerCase().includes(q)||c.telefone.includes(q)||(c.cpf||'').includes(q))
+      res.push({type:'Cliente',label:c.nome,sub:c.telefone,action:`nav('clientes')`});
+  });
+  DB.veiculos().forEach(v=>{
+    if(v.placa.toLowerCase().includes(q)||(v.marca+' '+v.modelo).toLowerCase().includes(q))
+      res.push({type:'Veículo',label:v.placa,sub:`${v.marca} ${v.modelo}`,action:`navHistorico('${v.placa}')`});
+  });
+  DB.ordens().forEach(o=>{
+    if(o.numero.toLowerCase().includes(q)||nomeCliente(o.clienteId).toLowerCase().includes(q)||placaVeiculo(o.veiculoId).toLowerCase().includes(q))
+      res.push({type:'OS',label:o.numero,sub:`${nomeCliente(o.clienteId)} – ${placaVeiculo(o.veiculoId)}`,action:`abrirOS('${o.id}')`});
+  });
+  if(res.length===0){document.getElementById('qs-results').innerHTML='<p class="text-muted text-sm">Nenhum resultado encontrado.</p>';return}
+  document.getElementById('qs-results').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px">
+  ${res.slice(0,10).map(r=>`<div class="card-sm" style="cursor:pointer;display:flex;gap:10px;align-items:center" onclick="${r.action}">
+    <span class="badge badge-gray">${r.type}</span>
+    <div><div style="font-weight:500;font-size:13px">${r.label}</div><div class="text-muted text-sm">${r.sub}</div></div>
+  </div>`).join('')}</div>`;
+}
+
+// ==================== CLIENTES ====================
+function renderClientes(){
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-users"></i> Clientes</h2>
+    <button class="btn btn-primary" onclick="modalCliente()"><i class="fas fa-plus"></i> Novo Cliente</button>
+  </div>
+  <div class="filters">
+    <input type="text" id="f-cli" placeholder="Buscar cliente..." style="max-width:280px" oninput="renderTabClientes()">
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>CPF/CNPJ</th><th>Veículos</th><th></th></tr></thead>
+    <tbody id="tab-clientes"></tbody>
+  </table></div>`;
+  renderTabClientes();
+}
+function renderTabClientes(){
+  const q=(document.getElementById('f-cli')?.value||'').toLowerCase();
+  const rows=DB.clientes().filter(c=>!q||c.nome.toLowerCase().includes(q)||c.telefone.includes(q));
+  const veiculos=DB.veiculos();
+  document.getElementById('tab-clientes').innerHTML=rows.length===0
+    ?`<tr><td colspan="6"><div class="empty-state"><i class="fas fa-users"></i><p>Nenhum cliente cadastrado</p></div></td></tr>`
+    :rows.map(c=>`<tr>
+      <td><span style="font-weight:500">${c.nome}</span></td>
+      <td>${c.telefone}</td>
+      <td>${c.email||'-'}</td>
+      <td>${c.cpf||'-'}</td>
+      <td><span class="badge badge-blue">${veiculos.filter(v=>v.clienteId===c.id).length}</span></td>
+      <td><div class="table-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="verCliente('${c.id}')" title="Ver"><i class="fas fa-eye"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="modalCliente('${c.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deletarCliente('${c.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+function modalCliente(id){
+  const c=id?DB.clientes().find(x=>x.id===id):{};
+  openModal(`<div class="modal">
+    <div class="modal-header"><h3>${id?'Editar':'Novo'} Cliente</h3><button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="grid-2"><div class="form-group"><label>Nome Completo *</label><input id="c-nome" value="${c.nome||''}"></div>
+      <div class="form-group"><label>Telefone/WhatsApp *</label><input id="c-tel" value="${c.telefone||''}"></div></div>
+      <div class="grid-2"><div class="form-group"><label>E-mail</label><input id="c-email" value="${c.email||''}"></div>
+      <div class="form-group"><label>CPF/CNPJ</label><input id="c-cpf" value="${c.cpf||''}"></div></div>
+      <div class="form-group"><label>Endereço</label><input id="c-end" value="${c.endereco||''}"></div>
+      <div class="form-group"><label>Observações</label><textarea id="c-obs">${c.obs||''}</textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarCliente('${id||''}')"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>`);
+}
+async function salvarCliente(id){
+  const nome=get('c-nome'),tel=get('c-tel');
+  if(!nome||!tel){toast('Preencha nome e telefone','error');return}
+  const item = id
+    ? {...DB.clientes().find(x=>x.id===id), nome, telefone:tel, email:get('c-email'), cpf:get('c-cpf'), endereco:get('c-end'), obs:get('c-obs')}
+    : {id:'cli_'+Date.now(), nome, telefone:tel, email:get('c-email'), cpf:get('c-cpf'), endereco:get('c-end'), obs:get('c-obs')};
+  await DB.save('clientes', item);
+  closeModal(); renderTabClientes(); toast('Cliente salvo!');
+}
+async function deletarCliente(id){
+  if(!confirm2('Excluir este cliente?'))return;
+  await DB.remove('clientes', id); renderTabClientes(); toast('Cliente excluído');
+}
+function verCliente(id){
+  const c=DB.clientes().find(x=>x.id===id);if(!c)return;
+  const veics=DB.veiculos().filter(x=>x.clienteId===id);
+  const oss=DB.ordens().filter(o=>o.clienteId===id);
+  openModal(`<div class="modal">
+    <div class="modal-header"><h3><i class="fas fa-user text-accent"></i> ${c.nome}</h3><button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="card-sm"><div class="info-row"><span class="label">Telefone</span><span class="value">${c.telefone}</span></div>
+        <div class="info-row"><span class="label">E-mail</span><span class="value">${c.email||'-'}</span></div>
+        <div class="info-row"><span class="label">CPF/CNPJ</span><span class="value">${c.cpf||'-'}</span></div>
+        <div class="info-row"><span class="label">Endereço</span><span class="value">${c.endereco||'-'}</span></div>
+        ${c.obs?`<div class="mt-2 text-sm text-muted">${c.obs}</div>`:''}
+        </div>
+        <div>
+          <p class="section-title">Veículos (${veics.length})</p>
+          ${veics.map(v=>`<div class="card-sm mb-1" style="display:flex;gap:10px;align-items:center">
+            <i class="fas fa-car text-accent"></i>
+            <div><div style="font-weight:500">${v.placa}</div><div class="text-sm text-muted">${v.marca} ${v.modelo} ${v.ano}</div></div>
+          </div>`).join('')||'<p class="text-muted text-sm">Nenhum veículo</p>'}
+        </div>
+      </div>
+      <div class="section-divider"></div>
+      <p class="section-title">Histórico de OS (${oss.length})</p>
+      ${oss.slice(-5).reverse().map(o=>`<div class="card-sm mb-1" style="display:flex;justify-content:space-between;align-items:center">
+        <span class="text-accent">${o.numero}</span>
+        <span>${fmtDate(o.dataEntrada)}</span>
+        ${statusOS(o.status)}
+        <span style="font-weight:500">${fmt(o.total)}</span>
+      </div>`).join('')||'<p class="text-muted text-sm">Nenhuma OS</p>'}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="closeModal();modalCliente('${id}')"><i class="fas fa-edit"></i> Editar</button>
+    </div>
+  </div>`);
+}
+
+// ==================== VEÍCULOS ====================
+function renderVeiculos(){
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-car"></i> Veículos</h2>
+    <button class="btn btn-primary" onclick="modalVeiculo()"><i class="fas fa-plus"></i> Novo Veículo</button>
+  </div>
+  <div class="filters">
+    <input type="text" id="f-vei" placeholder="Buscar placa, marca, modelo..." style="max-width:280px" oninput="renderTabVeiculos()">
+    <select class="filter-select" id="f-vei-cli" onchange="renderTabVeiculos()">
+      <option value="">Todos os clientes</option>
+      ${DB.clientes().map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+    </select>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Placa</th><th>Cliente</th><th>Marca/Modelo</th><th>Ano</th><th>Cor</th><th>KM</th><th></th></tr></thead>
+    <tbody id="tab-veiculos"></tbody>
+  </table></div>`;
+  renderTabVeiculos();
+}
+function renderTabVeiculos(){
+  const q=(document.getElementById('f-vei')?.value||'').toLowerCase();
+  const fc=document.getElementById('f-vei-cli')?.value||'';
+  const rows=DB.veiculos().filter(v=>
+    (!q||v.placa.toLowerCase().includes(q)||(v.marca+' '+v.modelo).toLowerCase().includes(q))&&
+    (!fc||v.clienteId===fc)
+  );
+  document.getElementById('tab-veiculos').innerHTML=rows.length===0
+    ?`<tr><td colspan="7"><div class="empty-state"><i class="fas fa-car"></i><p>Nenhum veículo cadastrado</p></div></td></tr>`
+    :rows.map(v=>`<tr>
+      <td><span class="tag" style="font-weight:600;font-size:13px">${v.placa}</span></td>
+      <td>${nomeCliente(v.clienteId)}</td>
+      <td>${v.marca} ${v.modelo}</td>
+      <td>${v.ano||'-'}</td>
+      <td>${v.cor||'-'}</td>
+      <td>${v.km?Number(v.km).toLocaleString('pt-BR')+' km':'-'}</td>
+      <td><div class="table-actions">
+        <button class="btn btn-ghost btn-sm" onclick="navHistorico('${v.placa}')" title="Histórico"><i class="fas fa-history"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="modalVeiculo('${v.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deletarVeiculo('${v.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+function modalVeiculo(id){
+  const v=id?DB.veiculos().find(x=>x.id===id):{};
+  const cliOpts=DB.clientes().map(c=>`<option value="${c.id}"${v.clienteId===c.id?' selected':''}>${c.nome}</option>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-header"><h3>${id?'Editar':'Novo'} Veículo</h3><button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="form-group"><label>Cliente *</label><select id="v-cli"><option value="">Selecione</option>${cliOpts}</select></div>
+        <div class="form-group"><label>Placa *</label><input id="v-placa" value="${v.placa||''}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+      </div>
+      <div class="grid-3">
+        <div class="form-group"><label>Marca</label><input id="v-marca" value="${v.marca||''}"></div>
+        <div class="form-group"><label>Modelo</label><input id="v-modelo" value="${v.modelo||''}"></div>
+        <div class="form-group"><label>Ano</label><input id="v-ano" value="${v.ano||''}" type="number"></div>
+      </div>
+      <div class="grid-3">
+        <div class="form-group"><label>Cor</label><input id="v-cor" value="${v.cor||''}"></div>
+        <div class="form-group"><label>Quilometragem atual</label><input id="v-km" value="${v.km||''}" type="number"></div>
+        <div class="form-group"><label>Chassi</label><input id="v-chassi" value="${v.chassi||''}"></div>
+      </div>
+      <div class="form-group"><label>Observações</label><textarea id="v-obs">${v.obs||''}</textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarVeiculo('${id||''}')"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>`);
+}
+async function salvarVeiculo(id){
+  const cliId=get('v-cli'),placa=get('v-placa');
+  if(!cliId||!placa){toast('Selecione o cliente e informe a placa','error');return}
+  const base = id ? DB.veiculos().find(x=>x.id===id) : {id:'vei_'+Date.now()};
+  const item = {...base, clienteId:cliId, placa, marca:get('v-marca'), modelo:get('v-modelo'), ano:get('v-ano'), cor:get('v-cor'), km:get('v-km'), chassi:get('v-chassi'), obs:get('v-obs')};
+  await DB.save('veiculos', item);
+  closeModal(); renderTabVeiculos(); toast('Veículo salvo!');
+}
+async function deletarVeiculo(id){
+  if(!confirm2('Excluir este veículo?'))return;
+  await DB.remove('veiculos', id); renderTabVeiculos(); toast('Veículo excluído');
+}
+
+// ==================== ORÇAMENTOS ====================
+function renderOrcamentos(){
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-file-alt"></i> Orçamentos</h2>
+    <button class="btn btn-primary" onclick="modalOrcamento()"><i class="fas fa-plus"></i> Novo Orçamento</button>
+  </div>
+  <div class="filters">
+    <input type="text" id="f-orc" placeholder="Buscar..." style="max-width:240px" oninput="renderTabOrcamentos()">
+    <select class="filter-select" id="f-orc-st" onchange="renderTabOrcamentos()">
+      <option value="">Todos os status</option>
+      <option value="pendente">Pendente</option>
+      <option value="aprovado">Aprovado</option>
+      <option value="recusado">Recusado</option>
+    </select>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Número</th><th>Data</th><th>Cliente</th><th>Veículo</th><th>Total</th><th>Validade</th><th>Status</th><th></th></tr></thead>
+    <tbody id="tab-orcamentos"></tbody>
+  </table></div>`;
+  renderTabOrcamentos();
+}
+function renderTabOrcamentos(){
+  const q=(document.getElementById('f-orc')?.value||'').toLowerCase();
+  const st=document.getElementById('f-orc-st')?.value||'';
+  const rows=DB.orcamentos().filter(o=>
+    (!q||o.numero.toLowerCase().includes(q)||nomeCliente(o.clienteId).toLowerCase().includes(q))&&
+    (!st||o.status===st)
+  ).reverse();
+  document.getElementById('tab-orcamentos').innerHTML=rows.length===0
+    ?`<tr><td colspan="8"><div class="empty-state"><i class="fas fa-file-alt"></i><p>Nenhum orçamento</p></div></td></tr>`
+    :rows.map(o=>`<tr>
+      <td><span class="text-accent">${o.numero}</span></td>
+      <td>${fmtDate(o.data)}</td>
+      <td>${nomeCliente(o.clienteId)}</td>
+      <td><span class="tag">${placaVeiculo(o.veiculoId)}</span></td>
+      <td style="font-weight:500">${fmt(o.total)}</td>
+      <td>${fmtDate(o.validade)}</td>
+      <td>${statusOrc(o.status)}</td>
+      <td><div class="table-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="verOrcamento('${o.id}')" title="Ver"><i class="fas fa-eye"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="modalOrcamento('${o.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+        ${o.status==='aprovado'&&!o.osGerada?`<button class="btn btn-success btn-sm" onclick="gerarOS('${o.id}')"><i class="fas fa-arrow-right"></i> Gerar OS</button>`:''}
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deletarOrcamento('${o.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+
+let orcServicos=[],orcPecas=[];
+function modalOrcamento(id){
+  const o=id?DB.orcamentos().find(x=>x.id===id):{};
+  orcServicos=o.servicos?JSON.parse(JSON.stringify(o.servicos)):[];
+  orcPecas=o.pecas?JSON.parse(JSON.stringify(o.pecas)):[];
+  const cliOpts=DB.clientes().map(c=>`<option value="${c.id}"${o.clienteId===c.id?' selected':''}>${c.nome}</option>`).join('');
+  openModal(`<div class="modal modal-lg">
+    <div class="modal-header"><h3>${id?'Editar':'Novo'} Orçamento</h3><button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="grid-3">
+        <div class="form-group"><label>Cliente *</label><select id="o-cli" onchange="loadVeiculosCli('o-vei',this.value,'${o.veiculoId||''}')"><option value="">Selecione</option>${cliOpts}</select></div>
+        <div class="form-group"><label>Veículo *</label><select id="o-vei"></select></div>
+        <div class="form-group"><label>Data</label><input id="o-data" type="date" value="${o.data||today()}"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Queixa do cliente</label><textarea id="o-queixa">${o.queixa||''}</textarea></div>
+        <div class="form-group"><label>Diagnóstico técnico</label><textarea id="o-diag">${o.diagnostico||''}</textarea></div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="flex-center gap-2 mb-1"><p class="section-title" style="margin:0">Serviços</p><button class="btn btn-ghost btn-sm" onclick="addOrcItem('servico')"><i class="fas fa-plus"></i> Add</button></div>
+      <div id="orc-servicos-list"></div>
+      <div class="section-divider"></div>
+      <div class="flex-center gap-2 mb-1"><p class="section-title" style="margin:0">Peças</p><button class="btn btn-ghost btn-sm" onclick="addOrcItem('peca')"><i class="fas fa-plus"></i> Add</button></div>
+      <div id="orc-pecas-list"></div>
+      <div class="section-divider"></div>
+      <div class="grid-4">
+        <div class="form-group"><label>Mão de obra (R$)</label><input id="o-mo" type="number" step="0.01" value="${o.maoDeObra||0}" oninput="calcTotalOrc()"></div>
+        <div class="form-group"><label>Valor das peças (R$)</label><input id="o-pecval" type="number" step="0.01" value="${o.valorPecas||0}" readonly style="opacity:.6"></div>
+        <div class="form-group"><label>Desconto (R$)</label><input id="o-desc" type="number" step="0.01" value="${o.desconto||0}" oninput="calcTotalOrc()"></div>
+        <div class="form-group"><label>Total</label><input id="o-total" type="number" step="0.01" value="${o.total||0}" readonly style="font-weight:700;color:var(--accent)"></div>
+      </div>
+      <div class="grid-3">
+        <div class="form-group"><label>Validade do orçamento</label><input id="o-valid" type="date" value="${o.validade||addDays(today(),30)}"></div>
+        <div class="form-group"><label>Status</label><select id="o-status">
+          <option value="pendente"${(o.status||'pendente')==='pendente'?' selected':''}>Pendente</option>
+          <option value="aprovado"${o.status==='aprovado'?' selected':''}>Aprovado</option>
+          <option value="recusado"${o.status==='recusado'?' selected':''}>Recusado</option>
+        </select></div>
+        <div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarOrcamento('${id||''}')"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>`);
+  if(o.clienteId)loadVeiculosCli('o-vei',o.clienteId,o.veiculoId);
+  renderOrcLists();
+}
+function addOrcItem(tipo){
+  if(tipo==='servico')orcServicos.push({desc:'',valor:0});
+  else orcPecas.push({desc:'',qtd:1,valor:0});
+  renderOrcLists();
+}
+function renderOrcLists(){
+  document.getElementById('orc-servicos-list').innerHTML=orcServicos.length===0?'<p class="text-muted text-sm mb-1">Nenhum serviço</p>':
+    orcServicos.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+      <input style="flex:1" placeholder="Descrição do serviço" value="${s.desc}" oninput="orcServicos[${i}].desc=this.value">
+      <input style="width:120px" type="number" step="0.01" placeholder="Valor" value="${s.valor}" oninput="orcServicos[${i}].valor=parseFloat(this.value||0);calcTotalOrc()">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="orcServicos.splice(${i},1);renderOrcLists()"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+  document.getElementById('orc-pecas-list').innerHTML=orcPecas.length===0?'<p class="text-muted text-sm mb-1">Nenhuma peça</p>':
+    orcPecas.map((p,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+      <input style="flex:1" placeholder="Nome da peça" value="${p.desc}" oninput="orcPecas[${i}].desc=this.value">
+      <input style="width:70px" type="number" placeholder="Qtd" value="${p.qtd}" oninput="orcPecas[${i}].qtd=parseInt(this.value||1);calcTotalOrc()">
+      <input style="width:120px" type="number" step="0.01" placeholder="Valor unit." value="${p.valor}" oninput="orcPecas[${i}].valor=parseFloat(this.value||0);calcTotalOrc()">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="orcPecas.splice(${i},1);renderOrcLists();calcTotalOrc()"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+  calcTotalOrc();
+}
+function calcTotalOrc(){
+  const mo=parseFloat(document.getElementById('o-mo')?.value||0);
+  const desc=parseFloat(document.getElementById('o-desc')?.value||0);
+  const vp=orcPecas.reduce((a,p)=>a+(p.valor*(p.qtd||1)),0);
+  const vs=orcServicos.reduce((a,s)=>a+parseFloat(s.valor||0),0);
+  if(document.getElementById('o-pecval'))document.getElementById('o-pecval').value=vp.toFixed(2);
+  if(document.getElementById('o-total'))document.getElementById('o-total').value=Math.max(0,mo+vp+vs-desc).toFixed(2);
+}
+async function salvarOrcamento(id){
+  const cliId=get('o-cli'),veiId=get('o-vei');
+  if(!cliId||!veiId){toast('Selecione cliente e veículo','error');return}
+  const mo=parseFloat(document.getElementById('o-mo').value||0);
+  const desc=parseFloat(document.getElementById('o-desc').value||0);
+  const vp=orcPecas.reduce((a,p)=>a+(p.valor*(p.qtd||1)),0);
+  const vs=orcServicos.reduce((a,s)=>a+parseFloat(s.valor||0),0);
+  const total=Math.max(0,mo+vp+vs-desc);
+  const base = id ? DB.orcamentos().find(x=>x.id===id) : {id:'orc_'+Date.now(), numero: await DB.nextId('ORC'), osGerada:false};
+  const item = {...base, clienteId:cliId, veiculoId:veiId, data:get('o-data'), queixa:get('o-queixa'), diagnostico:get('o-diag'), servicos:orcServicos, pecas:orcPecas, maoDeObra:mo, valorPecas:vp, desconto:desc, total, validade:get('o-valid'), status:get('o-status')};
+  await DB.save('orcamentos', item);
+  closeModal(); renderTabOrcamentos(); toast('Orçamento salvo!');
+}
+async function deletarOrcamento(id){
+  if(!confirm2('Excluir este orçamento?'))return;
+  await DB.remove('orcamentos', id); renderTabOrcamentos(); toast('Orçamento excluído');
+}
+async function gerarOS(orcId){
+  const o=DB.orcamentos().find(x=>x.id===orcId);if(!o)return;
+  const osId='os_'+Date.now();
+  const numero=await DB.nextId('OS');
+  const os={id:osId, numero, clienteId:o.clienteId, veiculoId:o.veiculoId, dataEntrada:today(), km:'', queixa:o.queixa, diagnostico:o.diagnostico, servicos:o.servicos||[], pecas:o.pecas||[], maoDeObra:o.maoDeObra||0, valorPecas:o.valorPecas||0, desconto:o.desconto||0, total:o.total||0, status:'aberta', formaPagamento:'', dataEntrega:'', obsInternas:'', orcamentoId:orcId};
+  await DB.save('ordens', os);
+  const orcAtualizado={...o, osGerada:true};
+  await DB.save('orcamentos', orcAtualizado);
+  toast('Ordem de Serviço criada: '+numero); nav('ordens');
+}
+function verOrcamento(id){
+  const o=DB.orcamentos().find(x=>x.id===id);if(!o)return;
+  printDoc(buildDocOrcamento(o));
+}
+
+// ==================== ORDENS DE SERVIÇO ====================
+let osServicos=[],osPecas=[];
+function renderOrdens(){
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-clipboard-list"></i> Ordens de Serviço</h2>
+    <button class="btn btn-primary" onclick="modalOS()"><i class="fas fa-plus"></i> Nova OS</button>
+  </div>
+  <div class="filters">
+    <input type="text" id="f-os" placeholder="Buscar OS, placa, cliente..." style="max-width:240px" oninput="renderTabOS()">
+    <select class="filter-select" id="f-os-st" onchange="renderTabOS()">
+      <option value="">Todos os status</option>
+      <option value="aberta">Aberta</option>
+      <option value="aprovada">Aprovada</option>
+      <option value="execucao">Em Execução</option>
+      <option value="aguardando">Ag. Peça</option>
+      <option value="finalizada">Finalizada</option>
+      <option value="entregue">Entregue</option>
+      <option value="cancelada">Cancelada</option>
+    </select>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>OS</th><th>Data</th><th>Cliente</th><th>Veículo</th><th>Total</th><th>Status</th><th></th></tr></thead>
+    <tbody id="tab-os"></tbody>
+  </table></div>`;
+  renderTabOS();
+}
+function renderTabOS(){
+  const q=(document.getElementById('f-os')?.value||'').toLowerCase();
+  const st=document.getElementById('f-os-st')?.value||'';
+  const rows=DB.ordens().filter(o=>
+    (!q||o.numero.toLowerCase().includes(q)||nomeCliente(o.clienteId).toLowerCase().includes(q)||placaVeiculo(o.veiculoId).toLowerCase().includes(q))&&
+    (!st||o.status===st)
+  ).reverse();
+  document.getElementById('tab-os').innerHTML=rows.length===0
+    ?`<tr><td colspan="7"><div class="empty-state"><i class="fas fa-clipboard-list"></i><p>Nenhuma ordem de serviço</p></div></td></tr>`
+    :rows.map(o=>`<tr>
+      <td><span class="text-accent" style="cursor:pointer;font-weight:600" onclick="abrirOS('${o.id}')">${o.numero}</span></td>
+      <td>${fmtDate(o.dataEntrada)}</td>
+      <td>${nomeCliente(o.clienteId)}</td>
+      <td><span class="tag">${placaVeiculo(o.veiculoId)}</span></td>
+      <td style="font-weight:500">${fmt(o.total)}</td>
+      <td>${statusOS(o.status)}</td>
+      <td><div class="table-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="abrirOS('${o.id}')" title="Ver"><i class="fas fa-eye"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="modalOS('${o.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="printOS('${o.id}')" title="Imprimir"><i class="fas fa-print"></i></button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deletarOS('${o.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+function modalOS(id){
+  const o=id?DB.ordens().find(x=>x.id===id):{};
+  osServicos=o.servicos?JSON.parse(JSON.stringify(o.servicos)):[];
+  osPecas=o.pecas?JSON.parse(JSON.stringify(o.pecas)):[];
+  const cliOpts=DB.clientes().map(c=>`<option value="${c.id}"${o.clienteId===c.id?' selected':''}>${c.nome}</option>`).join('');
+  openModal(`<div class="modal modal-lg">
+    <div class="modal-header"><h3>${id?'Editar OS':'Nova Ordem de Serviço'}</h3><button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="grid-3">
+        <div class="form-group"><label>Cliente *</label><select id="os-cli" onchange="loadVeiculosCli('os-vei',this.value,'${o.veiculoId||''}')"><option value="">Selecione</option>${cliOpts}</select></div>
+        <div class="form-group"><label>Veículo *</label><select id="os-vei"></select></div>
+        <div class="form-group"><label>Data de entrada</label><input id="os-data" type="date" value="${o.dataEntrada||today()}"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Quilometragem</label><input id="os-km" type="number" value="${o.km||''}"></div>
+        <div class="form-group"><label>Status</label><select id="os-status">
+          <option value="aberta"${(o.status||'aberta')==='aberta'?' selected':''}>Aberta</option>
+          <option value="aprovada"${o.status==='aprovada'?' selected':''}>Aprovada</option>
+          <option value="execucao"${o.status==='execucao'?' selected':''}>Em Execução</option>
+          <option value="aguardando"${o.status==='aguardando'?' selected':''}>Aguardando Peça</option>
+          <option value="finalizada"${o.status==='finalizada'?' selected':''}>Finalizada</option>
+          <option value="entregue"${o.status==='entregue'?' selected':''}>Entregue</option>
+          <option value="cancelada"${o.status==='cancelada'?' selected':''}>Cancelada</option>
+        </select></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Queixa do cliente</label><textarea id="os-queixa">${o.queixa||''}</textarea></div>
+        <div class="form-group"><label>Diagnóstico da oficina</label><textarea id="os-diag">${o.diagnostico||''}</textarea></div>
+      </div>
+      <div class="section-divider"></div>
+      <div class="flex-center gap-2 mb-1"><p class="section-title" style="margin:0">Serviços realizados</p><button class="btn btn-ghost btn-sm" onclick="addOSItem('servico')"><i class="fas fa-plus"></i> Add</button></div>
+      <div id="os-servicos-list"></div>
+      <div class="section-divider"></div>
+      <div class="flex-center gap-2 mb-1"><p class="section-title" style="margin:0">Peças utilizadas</p><button class="btn btn-ghost btn-sm" onclick="addOSItem('peca')"><i class="fas fa-plus"></i> Add</button></div>
+      <div id="os-pecas-list"></div>
+      <div class="section-divider"></div>
+      <div class="grid-4">
+        <div class="form-group"><label>Mão de obra (R$)</label><input id="os-mo" type="number" step="0.01" value="${o.maoDeObra||0}" oninput="calcTotalOS()"></div>
+        <div class="form-group"><label>Peças (R$)</label><input id="os-pecval" type="number" step="0.01" value="${o.valorPecas||0}" readonly style="opacity:.6"></div>
+        <div class="form-group"><label>Desconto (R$)</label><input id="os-desc" type="number" step="0.01" value="${o.desconto||0}" oninput="calcTotalOS()"></div>
+        <div class="form-group"><label>Total</label><input id="os-total" type="number" step="0.01" value="${o.total||0}" readonly style="font-weight:700;color:var(--accent)"></div>
+      </div>
+      <div class="grid-3">
+        <div class="form-group"><label>Forma de pagamento</label><select id="os-pgto">
+          <option value=""${!o.formaPagamento?' selected':''}>Selecione</option>
+          <option value="dinheiro"${o.formaPagamento==='dinheiro'?' selected':''}>Dinheiro</option>
+          <option value="pix"${o.formaPagamento==='pix'?' selected':''}>PIX</option>
+          <option value="cartao_credito"${o.formaPagamento==='cartao_credito'?' selected':''}>Cartão de Crédito</option>
+          <option value="cartao_debito"${o.formaPagamento==='cartao_debito'?' selected':''}>Cartão de Débito</option>
+          <option value="boleto"${o.formaPagamento==='boleto'?' selected':''}>Boleto</option>
+          <option value="financiamento"${o.formaPagamento==='financiamento'?' selected':''}>Financiamento</option>
+        </select></div>
+        <div class="form-group"><label>Data de entrega</label><input id="os-entrega" type="date" value="${o.dataEntrega||''}"></div>
+        <div></div>
+      </div>
+      <div class="form-group"><label>Observações internas</label><textarea id="os-obs">${o.obsInternas||''}</textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarOS('${id||''}')"><i class="fas fa-save"></i> Salvar OS</button>
+    </div>
+  </div>`);
+  if(o.clienteId)loadVeiculosCli('os-vei',o.clienteId,o.veiculoId);
+  renderOSLists();
+}
+function addOSItem(tipo){
+  if(tipo==='servico')osServicos.push({desc:'',valor:0});
+  else osPecas.push({desc:'',qtd:1,valor:0});
+  renderOSLists();
+}
+function renderOSLists(){
+  document.getElementById('os-servicos-list').innerHTML=osServicos.length===0?'<p class="text-muted text-sm mb-1">Nenhum serviço</p>':
+    osServicos.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+      <input style="flex:1" placeholder="Descrição do serviço" value="${s.desc}" oninput="osServicos[${i}].desc=this.value">
+      <input style="width:120px" type="number" step="0.01" placeholder="Valor" value="${s.valor}" oninput="osServicos[${i}].valor=parseFloat(this.value||0);calcTotalOS()">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="osServicos.splice(${i},1);renderOSLists()"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+  document.getElementById('os-pecas-list').innerHTML=osPecas.length===0?'<p class="text-muted text-sm mb-1">Nenhuma peça</p>':
+    osPecas.map((p,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px">
+      <input style="flex:1" placeholder="Nome da peça" value="${p.desc}" oninput="osPecas[${i}].desc=this.value">
+      <input style="width:70px" type="number" placeholder="Qtd" value="${p.qtd}" oninput="osPecas[${i}].qtd=parseInt(this.value||1);calcTotalOS()">
+      <input style="width:120px" type="number" step="0.01" placeholder="Valor unit." value="${p.valor}" oninput="osPecas[${i}].valor=parseFloat(this.value||0);calcTotalOS()">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="osPecas.splice(${i},1);renderOSLists();calcTotalOS()"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+  calcTotalOS();
+}
+function calcTotalOS(){
+  const mo=parseFloat(document.getElementById('os-mo')?.value||0);
+  const desc=parseFloat(document.getElementById('os-desc')?.value||0);
+  const vp=osPecas.reduce((a,p)=>a+(p.valor*(p.qtd||1)),0);
+  const vs=osServicos.reduce((a,s)=>a+parseFloat(s.valor||0),0);
+  if(document.getElementById('os-pecval'))document.getElementById('os-pecval').value=vp.toFixed(2);
+  if(document.getElementById('os-total'))document.getElementById('os-total').value=Math.max(0,mo+vp+vs-desc).toFixed(2);
+}
+async function salvarOS(id){
+  const cliId=get('os-cli'),veiId=get('os-vei');
+  if(!cliId||!veiId){toast('Selecione cliente e veículo','error');return}
+  const mo=parseFloat(document.getElementById('os-mo').value||0);
+  const desc=parseFloat(document.getElementById('os-desc').value||0);
+  const vp=osPecas.reduce((a,p)=>a+(p.valor*(p.qtd||1)),0);
+  const vs=osServicos.reduce((a,s)=>a+parseFloat(s.valor||0),0);
+  const total=Math.max(0,mo+vp+vs-desc);
+  const base = id ? DB.ordens().find(x=>x.id===id) : {id:'os_'+Date.now(), numero: await DB.nextId('OS')};
+  const item = {...base, clienteId:cliId, veiculoId:veiId, dataEntrada:get('os-data'), km:get('os-km'), queixa:get('os-queixa'), diagnostico:get('os-diag'), servicos:osServicos, pecas:osPecas, maoDeObra:mo, valorPecas:vp, desconto:desc, total, formaPagamento:get('os-pgto'), dataEntrega:get('os-entrega'), obsInternas:get('os-obs'), status:get('os-status')};
+  await DB.save('ordens', item);
+  closeModal(); renderTabOS(); toast('OS salva!');
+}
+async function deletarOS(id){
+  if(!confirm2('Excluir esta OS?'))return;
+  await DB.remove('ordens', id); renderTabOS(); toast('OS excluída');
+}
+function abrirOS(id){
+  const o=DB.ordens().find(x=>x.id===id);if(!o)return;
+  const c=DB.clientes().find(x=>x.id===o.clienteId)||{};
+  const v=DB.veiculos().find(x=>x.id===o.veiculoId)||{};
+  const gars=DB.garantias().filter(x=>x.osId===o.id);
+  openModal(`<div class="modal modal-lg">
+    <div class="modal-header">
+      <h3><i class="fas fa-clipboard-list text-accent"></i> ${o.numero}</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="modalGarantia('',{osId:'${o.id}'})"><i class="fas fa-shield-alt"></i> Garantia</button>
+        <button class="btn btn-ghost btn-sm" onclick="printOS('${o.id}')"><i class="fas fa-print"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2 mb-2">
+        <div class="card-sm">
+          <p class="section-title">Cliente</p>
+          <div class="info-row"><span class="label">Nome</span><span class="value">${c.nome||'-'}</span></div>
+          <div class="info-row"><span class="label">Telefone</span><span class="value">${c.telefone||'-'}</span></div>
+        </div>
+        <div class="card-sm">
+          <p class="section-title">Veículo</p>
+          <div class="info-row"><span class="label">Placa</span><span class="value">${v.placa||'-'}</span></div>
+          <div class="info-row"><span class="label">Marca/Modelo</span><span class="value">${v.marca||''} ${v.modelo||''}</span></div>
+          <div class="info-row"><span class="label">KM entrada</span><span class="value">${o.km?Number(o.km).toLocaleString('pt-BR')+' km':'-'}</span></div>
+        </div>
+      </div>
+      <div class="grid-2 mb-2">
+        <div class="card-sm"><p class="section-title">Queixa do cliente</p><p style="font-size:13px">${o.queixa||'-'}</p></div>
+        <div class="card-sm"><p class="section-title">Diagnóstico</p><p style="font-size:13px">${o.diagnostico||'-'}</p></div>
+      </div>
+      ${o.servicos?.length?`<div class="card-sm mb-2">
+        <p class="section-title">Serviços</p>
+        ${o.servicos.map(s=>`<div class="info-row"><span class="label">${s.desc}</span><span class="value">${fmt(s.valor)}</span></div>`).join('')}
+      </div>`:''}
+      ${o.pecas?.length?`<div class="card-sm mb-2">
+        <p class="section-title">Peças</p>
+        ${o.pecas.map(p=>`<div class="info-row"><span class="label">${p.desc} (${p.qtd||1}x)</span><span class="value">${fmt((p.valor||0)*(p.qtd||1))}</span></div>`).join('')}
+      </div>`:''}
+      <div class="grid-3 mb-2">
+        <div class="card-sm"><div class="info-row"><span class="label">Mão de obra</span><span class="value">${fmt(o.maoDeObra)}</span></div></div>
+        <div class="card-sm"><div class="info-row"><span class="label">Peças</span><span class="value">${fmt(o.valorPecas)}</span></div></div>
+        <div class="card-sm" style="border-color:var(--accent)"><div class="info-row"><span class="label" style="color:var(--accent)">Total</span><span class="value text-accent" style="font-size:16px">${fmt(o.total)}</span></div></div>
+      </div>
+      <div class="grid-3 mb-2">
+        <div class="card-sm"><div class="info-row"><span class="label">Status</span><span class="value">${statusOS(o.status)}</span></div></div>
+        <div class="card-sm"><div class="info-row"><span class="label">Pagamento</span><span class="value">${o.formaPagamento||'-'}</span></div></div>
+        <div class="card-sm"><div class="info-row"><span class="label">Entrega</span><span class="value">${fmtDate(o.dataEntrega)||'-'}</span></div></div>
+      </div>
+      ${gars.length?`<div class="section-divider"></div>
+      <p class="section-title">Garantias</p>
+      ${gars.map(g=>`<div class="card-sm mb-1" style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>${g.item}</strong> <span class="badge badge-gray">${g.tipo}</span></div>
+        <div>${fmtDate(g.dataInicio)} – ${fmtDate(g.dataFim)} (${g.prazo} dias)</div>
+        ${g.status==='ativa'?'<span class="badge badge-green">Ativa</span>':'<span class="badge badge-red">Vencida</span>'}
+      </div>`).join('')}`:''}
+      ${o.obsInternas?`<div class="card-sm mt-2"><p class="section-title">Obs. internas</p><p style="font-size:13px">${o.obsInternas}</p></div>`:''}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="closeModal();modalOS('${o.id}')"><i class="fas fa-edit"></i> Editar</button>
+    </div>
+  </div>`);
+}
+function printOS(id){const o=DB.ordens().find(x=>x.id===id);if(o)printDoc(buildDocOS(o))}
+
+// ==================== GARANTIAS ====================
+function renderGarantias(){
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-shield-alt"></i> Garantias</h2>
+    <button class="btn btn-primary" onclick="modalGarantia()"><i class="fas fa-plus"></i> Nova Garantia</button>
+  </div>
+  <div class="filters">
+    <select class="filter-select" id="f-gar-st" onchange="renderTabGarantias()">
+      <option value="">Todas</option>
+      <option value="ativa">Ativas</option>
+      <option value="vencida">Vencidas</option>
+    </select>
+    <select class="filter-select" id="f-gar-tipo" onchange="renderTabGarantias()">
+      <option value="">Todos os tipos</option>
+      <option value="servico">Serviço</option>
+      <option value="peca">Peça</option>
+    </select>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>OS</th><th>Item</th><th>Tipo</th><th>Início</th><th>Vencimento</th><th>Prazo</th><th>Status</th><th></th></tr></thead>
+    <tbody id="tab-garantias"></tbody>
+  </table></div>`;
+  renderTabGarantias();
+}
+function calcGarStatus(g){return diffDays(today(),g.dataFim)>=0?'ativa':'vencida'}
+function renderTabGarantias(){
+  const st=document.getElementById('f-gar-st')?.value||'';
+  const tp=document.getElementById('f-gar-tipo')?.value||'';
+  const gars=DB.garantias().map(g=>({...g,status:calcGarStatus(g)}));
+  const rows=gars.filter(g=>(!st||g.status===st)&&(!tp||g.tipo===tp)).reverse();
+  document.getElementById('tab-garantias').innerHTML=rows.length===0
+    ?`<tr><td colspan="8"><div class="empty-state"><i class="fas fa-shield-alt"></i><p>Nenhuma garantia cadastrada</p></div></td></tr>`
+    :rows.map(g=>{
+      const os=DB.ordens().find(x=>x.id===g.osId);
+      const dias=diffDays(today(),g.dataFim);
+      return `<tr>
+        <td>${os?`<span class="text-accent">${os.numero}</span>`:'-'}</td>
+        <td style="font-weight:500">${g.item}</td>
+        <td><span class="badge badge-blue">${g.tipo==='servico'?'Serviço':'Peça'}</span></td>
+        <td>${fmtDate(g.dataInicio)}</td>
+        <td>${fmtDate(g.dataFim)}</td>
+        <td>${g.prazo} dias${g.status==='ativa'&&dias<=30?`<span class="badge badge-yellow" style="margin-left:4px">Vence em ${dias}d</span>`:''}</td>
+        <td>${g.status==='ativa'?'<span class="badge badge-green">Ativa</span>':'<span class="badge badge-red">Vencida</span>'}</td>
+        <td><div class="table-actions">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="modalGarantia('${g.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="deletarGarantia('${g.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+        </div></td>
+      </tr>`;
+    }).join('');
+}
+function modalGarantia(id,defaults={}){
+  const g=id?DB.garantias().find(x=>x.id===id):{};
+  const osOpts=DB.ordens().map(o=>`<option value="${o.id}"${(g.osId||defaults.osId)===o.id?' selected':''}>${o.numero} – ${nomeCliente(o.clienteId)}</option>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-header"><h3>${id?'Editar':'Nova'} Garantia</h3><button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Ordem de Serviço</label><select id="g-os"><option value="">Selecione</option>${osOpts}</select></div>
+      <div class="form-group"><label>Item com garantia</label><input id="g-item" value="${g.item||''}" placeholder="Ex: Correia dentada, Revisão de freios..."></div>
+      <div class="grid-3">
+        <div class="form-group"><label>Tipo</label><select id="g-tipo">
+          <option value="servico"${(g.tipo||'servico')==='servico'?' selected':''}>Serviço</option>
+          <option value="peca"${g.tipo==='peca'?' selected':''}>Peça</option>
+        </select></div>
+        <div class="form-group"><label>Prazo (dias)</label><input id="g-prazo" type="number" value="${g.prazo||90}" oninput="calcGarFim()"></div>
+        <div class="form-group"><label>Data inicial</label><input id="g-inicio" type="date" value="${g.dataInicio||today()}" oninput="calcGarFim()"></div>
+      </div>
+      <div class="form-group"><label>Data final (calculada)</label><input id="g-fim" type="date" value="${g.dataFim||addDays(today(),90)}" readonly style="opacity:.7"></div>
+      <div class="form-group"><label>Observações</label><textarea id="g-obs">${g.obs||''}</textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarGarantia('${id||''}')"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>`);
+}
+function calcGarFim(){
+  const inicio=document.getElementById('g-inicio')?.value;
+  const prazo=parseInt(document.getElementById('g-prazo')?.value||0);
+  if(inicio&&prazo)document.getElementById('g-fim').value=addDays(inicio,prazo);
+}
+async function salvarGarantia(id){
+  const osId=get('g-os'),itemVal=get('g-item'),prazo=get('g-prazo');
+  if(!itemVal||!prazo){toast('Preencha os campos obrigatórios','error');return}
+  const base = id ? DB.garantias().find(x=>x.id===id) : {id:'gar_'+Date.now()};
+  const item = {...base, osId, item:itemVal, tipo:get('g-tipo'), prazo:parseInt(prazo), dataInicio:get('g-inicio'), dataFim:get('g-fim'), obs:get('g-obs')};
+  await DB.save('garantias', item);
+  closeModal();
+  if(currentPage==='garantias') renderTabGarantias();
+  toast('Garantia salva!');
+}
+async function deletarGarantia(id){
+  if(!confirm2('Excluir esta garantia?'))return;
+  await DB.remove('garantias', id); renderTabGarantias(); toast('Garantia excluída');
+}
+
+// ==================== HISTÓRICO ====================
+function renderHistorico(){
+  document.getElementById('content').innerHTML=`
+  <div class="page-header"><h2><i class="fas fa-history"></i> Histórico do Veículo</h2></div>
+  <div class="card mb-2">
+    <h3 class="mb-2">Buscar veículo</h3>
+    <div style="display:flex;gap:10px">
+      <input id="h-placa" placeholder="Digite a placa..." style="max-width:200px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+      <button class="btn btn-primary" onclick="buscarHistorico()"><i class="fas fa-search"></i> Buscar</button>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      ${DB.veiculos().map(v=>`<button class="btn btn-ghost btn-sm" onclick="document.getElementById('h-placa').value='${v.placa}';buscarHistorico()">${v.placa}</button>`).join('')}
+    </div>
+  </div>
+  <div id="historico-result"></div>`;
+}
+function navHistorico(placa){nav('historico');setTimeout(()=>{document.getElementById('h-placa').value=placa;buscarHistorico()},50)}
+function buscarHistorico(){
+  const placa=document.getElementById('h-placa').value.toUpperCase();
+  const v=DB.veiculos().find(x=>x.placa===placa);
+  if(!v){document.getElementById('historico-result').innerHTML='<div class="card"><p class="text-muted">Veículo não encontrado. Verifique a placa.</p></div>';return}
+  const c=DB.clientes().find(x=>x.id===v.clienteId)||{};
+  const ordens=DB.ordens().filter(x=>x.veiculoId===v.id).sort((a,b)=>b.dataEntrada.localeCompare(a.dataEntrada));
+  const gars=DB.garantias().filter(x=>ordens.find(o=>o.id===x.osId));
+  document.getElementById('historico-result').innerHTML=`
+  <div class="grid-2 mb-2">
+    <div class="card"><p class="section-title">Dados do Cliente</p>
+      <div class="info-row"><span class="label">Nome</span><span class="value">${c.nome||'-'}</span></div>
+      <div class="info-row"><span class="label">Telefone</span><span class="value">${c.telefone||'-'}</span></div>
+      <div class="info-row"><span class="label">E-mail</span><span class="value">${c.email||'-'}</span></div>
+    </div>
+    <div class="card"><p class="section-title">Dados do Veículo</p>
+      <div class="info-row"><span class="label">Placa</span><span class="value text-accent">${v.placa}</span></div>
+      <div class="info-row"><span class="label">Marca/Modelo</span><span class="value">${v.marca} ${v.modelo}</span></div>
+      <div class="info-row"><span class="label">Ano / Cor</span><span class="value">${v.ano||'-'} / ${v.cor||'-'}</span></div>
+      <div class="info-row"><span class="label">Chassi</span><span class="value">${v.chassi||'-'}</span></div>
+    </div>
+  </div>
+  ${gars.length?`<div class="card mb-2">
+    <p class="section-title">Garantias</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${gars.map(g=>`<div class="card-sm" style="min-width:200px">
+        <div style="font-weight:500;margin-bottom:4px">${g.item}</div>
+        <div class="text-sm text-muted">${fmtDate(g.dataInicio)} – ${fmtDate(g.dataFim)}</div>
+        ${calcGarStatus(g)==='ativa'?'<span class="badge badge-green">Ativa</span>':'<span class="badge badge-red">Vencida</span>'}
+      </div>`).join('')}
+    </div>
+  </div>`:''}
+  <h3 style="margin-bottom:12px"><i class="fas fa-history text-accent"></i> ${ordens.length} Atendimento(s)</h3>
+  ${ordens.length===0?'<div class="card"><p class="text-muted">Nenhum atendimento registrado.</p></div>':
+    ordens.map(o=>`<div class="card mb-2">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div><span class="text-accent" style="font-weight:700;font-size:15px">${o.numero}</span> <span class="text-muted text-sm">${fmtDate(o.dataEntrada)}</span></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${statusOS(o.status)}
+          <span style="font-weight:600">${fmt(o.total)}</span>
+        </div>
+      </div>
+      ${o.km?`<p class="text-sm text-muted mb-1"><i class="fas fa-tachometer-alt"></i> ${Number(o.km).toLocaleString('pt-BR')} km</p>`:''}
+      <div class="grid-2">
+        ${o.queixa?`<div><p class="section-title">Queixa</p><p class="text-sm">${o.queixa}</p></div>`:''}
+        ${o.diagnostico?`<div><p class="section-title">Diagnóstico</p><p class="text-sm">${o.diagnostico}</p></div>`:''}
+      </div>
+      ${o.servicos?.length?`<div class="mt-2"><p class="section-title">Serviços</p><div style="display:flex;flex-wrap:wrap;gap:4px">${o.servicos.map(s=>`<span class="tag">${s.desc}</span>`).join('')}</div></div>`:''}
+      ${o.pecas?.length?`<div class="mt-2"><p class="section-title">Peças</p><div style="display:flex;flex-wrap:wrap;gap:4px">${o.pecas.map(p=>`<span class="tag">${p.desc} (${p.qtd||1}x)</span>`).join('')}</div></div>`:''}
+    </div>`).join('')}
+  `;
+}
+
+// ==================== RELATÓRIOS ====================
+function renderRelatorios(){
+  const os=DB.ordens();
+  const faturamento=os.filter(x=>['finalizada','entregue'].includes(x.status)).reduce((a,b)=>a+(parseFloat(b.total)||0),0);
+  const servCount={};
+  os.forEach(o=>(o.servicos||[]).forEach(s=>{if(s.desc)servCount[s.desc]=(servCount[s.desc]||0)+1}));
+  const topServ=Object.entries(servCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const statusCount={};
+  os.forEach(o=>statusCount[o.status]=(statusCount[o.status]||0)+1);
+  const today30=addDays(today(),-30);
+  const ultimoMes=os.filter(x=>x.dataEntrada>=today30);
+  const gar=DB.garantias().map(g=>({...g,status:calcGarStatus(g)}));
+  const garVenc30=gar.filter(g=>{const d=diffDays(today(),g.dataFim);return d>=0&&d<=30&&g.status==='ativa'});
+  document.getElementById('content').innerHTML=`
+  <div class="page-header"><h2><i class="fas fa-chart-bar"></i> Relatórios</h2></div>
+  <div class="grid-4 mb-2">
+    <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,.15);color:var(--green)"><i class="fas fa-dollar-sign"></i></div>
+      <div class="stat-label">Faturamento total</div><div class="stat-value" style="color:var(--green);font-size:18px">${fmt(faturamento)}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="fas fa-users"></i></div>
+      <div class="stat-label">Clientes</div><div class="stat-value">${DB.clientes().length}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:rgba(245,158,11,.15);color:var(--accent)"><i class="fas fa-car"></i></div>
+      <div class="stat-label">Veículos</div><div class="stat-value">${DB.veiculos().length}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:rgba(168,85,247,.15);color:var(--purple)"><i class="fas fa-clipboard-list"></i></div>
+      <div class="stat-label">OS (último mês)</div><div class="stat-value">${ultimoMes.length}</div></div>
+  </div>
+  <div class="grid-2 mb-2">
+    <div class="card">
+      <h3 class="mb-2"><i class="fas fa-tags text-accent"></i> Serviços Mais Realizados</h3>
+      ${topServ.length===0?'<p class="text-muted text-sm">Nenhum serviço registrado</p>':
+        topServ.map((s,i)=>`<div class="info-row">
+          <span class="label"><span class="badge badge-gray">${i+1}</span> ${s[0]}</span>
+          <span class="value"><span class="badge badge-yellow">${s[1]}x</span></span>
+        </div>`).join('')}
+    </div>
+    <div class="card">
+      <h3 class="mb-2"><i class="fas fa-chart-pie text-accent"></i> Ordens por Status</h3>
+      ${Object.entries(statusCount).length===0?'<p class="text-muted text-sm">Nenhuma OS</p>':
+        Object.entries(statusCount).map(([s,n])=>`<div class="info-row">
+          <span class="label">${statusOS(s)}</span>
+          <span class="value">${n}</span>
+        </div>`).join('')}
+    </div>
+  </div>
+  <div class="card mb-2">
+    <h3 class="mb-2"><i class="fas fa-shield-alt text-accent"></i> Garantias Vencendo em 30 dias (${garVenc30.length})</h3>
+    ${garVenc30.length===0?'<p class="text-muted text-sm">Nenhuma garantia vencendo em 30 dias.</p>':
+      `<div class="table-wrap"><table>
+        <tr><th>Item</th><th>Tipo</th><th>OS</th><th>Vencimento</th><th>Dias restantes</th></tr>
+        ${garVenc30.map(g=>{
+          const os=DB.ordens().find(x=>x.id===g.osId);
+          return `<tr><td>${g.item}</td><td>${g.tipo}</td><td>${os?os.numero:'-'}</td><td>${fmtDate(g.dataFim)}</td><td><span class="badge badge-yellow">${diffDays(today(),g.dataFim)} dias</span></td></tr>`;
+        }).join('')}
+      </table></div>`}
+  </div>
+  <div class="card">
+    <h3 class="mb-2"><i class="fas fa-history text-accent"></i> Últimos Atendimentos (30 dias)</h3>
+    ${ultimoMes.length===0?'<p class="text-muted text-sm">Nenhuma OS no último mês.</p>':
+      `<div class="table-wrap"><table>
+        <tr><th>OS</th><th>Data</th><th>Cliente</th><th>Placa</th><th>Total</th><th>Status</th></tr>
+        ${ultimoMes.reverse().map(o=>`<tr>
+          <td class="text-accent">${o.numero}</td>
+          <td>${fmtDate(o.dataEntrada)}</td>
+          <td>${nomeCliente(o.clienteId)}</td>
+          <td><span class="tag">${placaVeiculo(o.veiculoId)}</span></td>
+          <td>${fmt(o.total)}</td>
+          <td>${statusOS(o.status)}</td>
+        </tr>`).join('')}
+      </table></div>`}
+  </div>`;
+}
+
+// ==================== UTILS ====================
+function loadVeiculosCli(selectId,cliId,selectedId){
+  const sel=document.getElementById(selectId);if(!sel)return;
+  const veics=DB.veiculos().filter(v=>v.clienteId===cliId);
+  sel.innerHTML='<option value="">Selecione</option>'+veics.map(v=>`<option value="${v.id}"${v.id===selectedId?' selected':''}>${v.placa} – ${v.marca} ${v.modelo}</option>`).join('');
+}
+function globalSearch(e){if(e.key==='Enter'){const q=e.target.value;if(!q)return;nav('historico');setTimeout(()=>{document.getElementById('h-placa').value=q.toUpperCase();buscarHistorico()},50)}}
+
+// ==================== DOCUMENTOS ====================
+function buildDocOS(o){
+  const c=DB.clientes().find(x=>x.id===o.clienteId)||{};
+  const v=DB.veiculos().find(x=>x.id===o.veiculoId)||{};
+  const pgto={dinheiro:'Dinheiro',pix:'PIX',cartao_credito:'Cartão de Crédito',cartao_debito:'Cartão de Débito',boleto:'Boleto',financiamento:'Financiamento'};
+  return `<div style="font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto">
+    <div style="text-align:center;border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:20px">
+      <h1 style="font-size:22px;margin:0">🔧 MecânicaPro</h1>
+      <h2 style="font-size:16px;margin:4px 0;color:#555">ORDEM DE SERVIÇO</h2>
+      <h3 style="font-size:20px;color:#f59e0b;margin:4px 0">${o.numero}</h3>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><td style="width:50%;vertical-align:top;padding-right:16px">
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 8px">CLIENTE</p>
+        <p style="margin:2px 0">${c.nome||'-'}</p>
+        <p style="margin:2px 0;font-size:13px;color:#555">${c.telefone||''}</p>
+        <p style="margin:2px 0;font-size:13px;color:#555">${c.email||''}</p>
+      </td><td style="width:50%;vertical-align:top">
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 8px">VEÍCULO</p>
+        <p style="margin:2px 0"><strong>${v.placa}</strong> — ${v.marca} ${v.modelo} ${v.ano||''}</p>
+        <p style="margin:2px 0;font-size:13px;color:#555">Cor: ${v.cor||'-'} | KM: ${o.km?Number(o.km).toLocaleString('pt-BR'):'-'}</p>
+      </td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><td style="width:33%;font-size:12px"><strong>Data de entrada:</strong> ${fmtDate(o.dataEntrada)}</td>
+      <td style="width:33%;font-size:12px"><strong>Entrega:</strong> ${fmtDate(o.dataEntrega)||'—'}</td>
+      <td style="width:33%;font-size:12px"><strong>Status:</strong> ${o.status}</td></tr>
+    </table>
+    ${o.queixa?`<div style="margin-bottom:12px;padding:10px;background:#f5f5f5;border-radius:4px"><p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 4px">QUEIXA DO CLIENTE</p><p style="margin:0;font-size:13px">${o.queixa}</p></div>`:''}
+    ${o.diagnostico?`<div style="margin-bottom:12px;padding:10px;background:#f5f5f5;border-radius:4px"><p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 4px">DIAGNÓSTICO</p><p style="margin:0;font-size:13px">${o.diagnostico}</p></div>`:''}
+    ${(o.servicos||[]).length?`<table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><th colspan="2" style="background:#333;color:#fff;padding:8px;text-align:left;font-size:12px">SERVIÇOS</th></tr>
+      ${o.servicos.map(s=>`<tr><td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:13px">${s.desc}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:13px">${fmt(s.valor)}</td></tr>`).join('')}
+    </table>`:''}
+    ${(o.pecas||[]).length?`<table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><th style="background:#333;color:#fff;padding:8px;text-align:left;font-size:12px">PEÇAS</th><th style="background:#333;color:#fff;padding:8px;text-align:center;font-size:12px">QTD</th><th style="background:#333;color:#fff;padding:8px;text-align:right;font-size:12px">VALOR</th></tr>
+      ${o.pecas.map(p=>`<tr><td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:13px">${p.desc}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${p.qtd||1}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-size:13px">${fmt((p.valor||0)*(p.qtd||1))}</td></tr>`).join('')}
+    </table>`:''}
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+      <tr><td style="padding:6px;font-size:13px">Mão de obra</td><td style="padding:6px;text-align:right;font-size:13px">${fmt(o.maoDeObra)}</td></tr>
+      <tr><td style="padding:6px;font-size:13px">Peças</td><td style="padding:6px;text-align:right;font-size:13px">${fmt(o.valorPecas)}</td></tr>
+      ${o.desconto?`<tr><td style="padding:6px;font-size:13px">Desconto</td><td style="padding:6px;text-align:right;font-size:13px;color:red">-${fmt(o.desconto)}</td></tr>`:''}
+      <tr style="border-top:2px solid #333"><td style="padding:8px;font-weight:700;font-size:15px">TOTAL</td><td style="padding:8px;text-align:right;font-weight:700;font-size:15px;color:#f59e0b">${fmt(o.total)}</td></tr>
+      ${o.formaPagamento?`<tr><td style="padding:4px;font-size:12px;color:#888">Pagamento</td><td style="padding:4px;text-align:right;font-size:12px;color:#888">${pgto[o.formaPagamento]||o.formaPagamento}</td></tr>`:''}
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #ddd">
+      <div style="text-align:center"><div style="border-top:1px solid #000;padding-top:8px;font-size:12px">Assinatura do cliente</div></div>
+      <div style="text-align:center"><div style="border-top:1px solid #000;padding-top:8px;font-size:12px">Responsável pela oficina</div></div>
+    </div>
+  </div>`;
+}
+function buildDocOrcamento(o){
+  const c=DB.clientes().find(x=>x.id===o.clienteId)||{};
+  const v=DB.veiculos().find(x=>x.id===o.veiculoId)||{};
+  return `<div style="font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto">
+    <div style="text-align:center;border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:20px">
+      <h1 style="font-size:22px;margin:0">🔧 MecânicaPro</h1>
+      <h2 style="font-size:16px;margin:4px 0;color:#555">ORÇAMENTO</h2>
+      <h3 style="font-size:20px;color:#f59e0b;margin:4px 0">${o.numero}</h3>
+    </div>
+    <table style="width:100%;margin-bottom:16px"><tr>
+      <td style="width:50%;vertical-align:top;padding-right:16px">
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 6px">CLIENTE</p>
+        <p style="margin:2px 0">${c.nome||'-'}</p><p style="margin:2px 0;font-size:13px;color:#555">${c.telefone||''}</p>
+      </td><td style="width:50%;vertical-align:top">
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 6px">VEÍCULO</p>
+        <p style="margin:2px 0"><strong>${v.placa}</strong> — ${v.marca} ${v.modelo}</p>
+      </td></tr></table>
+    <p style="font-size:12px;margin-bottom:12px"><strong>Data:</strong> ${fmtDate(o.data)} &nbsp; <strong>Válido até:</strong> ${fmtDate(o.validade)}</p>
+    ${o.queixa?`<div style="margin-bottom:10px;padding:8px;background:#f5f5f5;border-radius:4px"><p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 4px">QUEIXA</p><p style="margin:0;font-size:13px">${o.queixa}</p></div>`:''}
+    ${o.diagnostico?`<div style="margin-bottom:10px;padding:8px;background:#f5f5f5;border-radius:4px"><p style="font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:0 0 4px">DIAGNÓSTICO</p><p style="margin:0;font-size:13px">${o.diagnostico}</p></div>`:''}
+    ${(o.servicos||[]).length?`<table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+      <tr><th colspan="2" style="background:#333;color:#fff;padding:7px;text-align:left;font-size:12px">SERVIÇOS</th></tr>
+      ${o.servicos.map(s=>`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:13px">${s.desc}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-size:13px">${fmt(s.valor)}</td></tr>`).join('')}
+    </table>`:''}
+    ${(o.pecas||[]).length?`<table style="width:100%;border-collapse:collapse;margin-bottom:12px">
+      <tr><th style="background:#333;color:#fff;padding:7px;text-align:left;font-size:12px">PEÇAS</th><th style="background:#333;color:#fff;padding:7px;text-align:center;font-size:12px">QTD</th><th style="background:#333;color:#fff;padding:7px;text-align:right;font-size:12px">VALOR</th></tr>
+      ${o.pecas.map(p=>`<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-size:13px">${p.desc}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;font-size:13px">${p.qtd||1}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-size:13px">${fmt((p.valor||0)*(p.qtd||1))}</td></tr>`).join('')}
+    </table>`:''}
+    <table style="width:100%;margin-top:8px">
+      <tr><td style="padding:5px;font-size:13px">Mão de obra</td><td style="padding:5px;text-align:right;font-size:13px">${fmt(o.maoDeObra)}</td></tr>
+      <tr><td style="padding:5px;font-size:13px">Peças</td><td style="padding:5px;text-align:right;font-size:13px">${fmt(o.valorPecas)}</td></tr>
+      ${o.desconto?`<tr><td style="padding:5px;font-size:13px">Desconto</td><td style="padding:5px;text-align:right;font-size:13px;color:red">-${fmt(o.desconto)}</td></tr>`:''}
+      <tr style="border-top:2px solid #333"><td style="padding:8px;font-weight:700;font-size:15px">TOTAL</td><td style="padding:8px;text-align:right;font-weight:700;font-size:15px;color:#f59e0b">${fmt(o.total)}</td></tr>
+    </table>
+    <p style="margin-top:20px;font-size:11px;color:#888;text-align:center">Este orçamento é válido até ${fmtDate(o.validade)}. Sujeito a alterações após aprovação.</p>
+  </div>`;
+}
+function printDoc(html){
+  closeModal();
+  openModal(`<div class="modal modal-lg" style="max-width:860px">
+    <div class="modal-header" style="position:sticky;top:0;background:var(--bg2);z-index:10">
+      <h3><i class="fas fa-file-alt text-accent"></i> Visualizar Documento</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="doPrint()"><i class="fas fa-print"></i> Imprimir / Salvar PDF</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="print-iframe-wrap" style="background:#fff;border-radius:var(--radius);padding:0;overflow:hidden">
+        <iframe id="doc-frame" style="width:100%;height:700px;border:none" srcdoc=""></iframe>
+      </div>
+    </div>
+  </div>`);
+  const fullHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif}@media print{body{margin:0}}</style></head><body>${html}</body></html>`;
+  setTimeout(()=>{
+    const frame=document.getElementById('doc-frame');
+    if(frame){frame.srcdoc=fullHtml}
+  },50);
+}
+function doPrint(){
+  const frame=document.getElementById('doc-frame');
+  if(frame&&frame.contentWindow){frame.contentWindow.focus();frame.contentWindow.print()}
+}
+
+// Expõe funções ao escopo global (necessário para onclick nos atributos HTML)
+Object.assign(window, {
+  doLogin, doLogout, nav, toggleSidebar, closeSidebar,
+  modalCliente, salvarCliente, deletarCliente, verCliente,
+  modalVeiculo, salvarVeiculo, deletarVeiculo,
+  renderTabClientes, renderTabVeiculos, renderTabOrcamentos, renderTabOS, renderTabGarantias,
+  modalOrcamento, salvarOrcamento, deletarOrcamento, gerarOS, verOrcamento,
+  addOrcItem, renderOrcLists, calcTotalOrc,
+  modalOS, salvarOS, deletarOS, abrirOS, printOS,
+  addOSItem, renderOSLists, calcTotalOS,
+  modalGarantia, salvarGarantia, deletarGarantia,
+  renderHistorico, buscarHistorico, navHistorico,
+  quickSearchDash, globalSearch, closeModal, doPrint,
+  loadVeiculosCli, calcGarFim
+});
+</script>
+</body>
+</html>
