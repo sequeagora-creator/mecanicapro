@@ -204,16 +204,16 @@ table tr:hover td{background:rgba(255,255,255,.02)}
   </div>
   <div class="form-group">
     <label>Usuário</label>
-    <input type="text" id="login-user" value="admin" placeholder="admin">
+    <input type="text" id="login-user" placeholder="Usuário">
   </div>
   <div class="form-group">
     <label>Senha</label>
-    <input type="password" id="login-pass" value="1234" placeholder="1234">
+    <input type="password" id="login-pass" placeholder="Senha">
   </div>
   <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">
     <i class="fas fa-sign-in-alt"></i> Entrar
   </button>
-  <p class="text-muted text-sm mt-2" style="text-align:center">Usuário: admin / Senha: 1234</p>
+  <p class="text-muted text-sm mt-2" style="text-align:center">Acesso restrito à equipe autorizada</p>
 </div>
 </div>
 
@@ -239,12 +239,16 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <a href="javascript:void(0)" onclick="nav('garantias')" id="nav-garantias"><i class="fas fa-shield-alt"></i> Garantias</a>
     <a href="javascript:void(0)" onclick="nav('historico')" id="nav-historico"><i class="fas fa-history"></i> Histórico</a>
     <a href="javascript:void(0)" onclick="nav('relatorios')" id="nav-relatorios"><i class="fas fa-chart-bar"></i> Relatórios</a>
+    <div id="nav-usuarios-wrap" style="display:none">
+      <span class="nav-section">Administração</span>
+      <a href="javascript:void(0)" onclick="nav('usuarios')" id="nav-usuarios"><i class="fas fa-user-shield"></i> Usuários</a>
+    </div>
   </nav>
   <div class="sidebar-user">
-    <div class="avatar">A</div>
+    <div class="avatar" id="sidebar-avatar">A</div>
     <div>
-      <div style="font-size:12px;font-weight:600">Admin</div>
-      <div style="font-size:11px;color:var(--text3)">Administrador</div>
+      <div style="font-size:12px;font-weight:600" id="sidebar-user-nome">Administrador</div>
+      <div style="font-size:11px;color:var(--text3)" id="sidebar-user-perfil">Master</div>
     </div>
     <button class="btn btn-ghost btn-sm btn-icon" style="margin-left:auto" onclick="doLogout()" title="Sair">
       <i class="fas fa-sign-out-alt"></i>
@@ -286,7 +290,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Cache local para performance
-const cache = { clientes:[], veiculos:[], orcamentos:[], ordens:[], garantias:[] };
+const cache = { clientes:[], veiculos:[], orcamentos:[], ordens:[], garantias:[], usuarios:[] };
+
+// Usuário logado atualmente
+let usuarioLogado = null;
 
 // ==================== DB ====================
 const DB = {
@@ -296,6 +303,7 @@ const DB = {
   orcamentos(){ return cache.orcamentos },
   ordens(){ return cache.ordens },
   garantias(){ return cache.garantias },
+  usuarios(){ return cache.usuarios },
 
   // Carrega coleção do Firestore para o cache
   async load(col){
@@ -336,27 +344,55 @@ const DB = {
 };
 
 // ==================== AUTH ====================
+const MASTER = { usuario: 'Administrador', senha: 'Estrela3342@', nome: 'Administrador', perfil: 'master' };
+
 async function doLogin(){
-  const u=document.getElementById('login-user').value;
-  const p=document.getElementById('login-pass').value;
-  if(u==='admin'&&p==='1234'){
-    const btn = document.querySelector('#login-page .btn-primary');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
-    btn.disabled = true;
-    try {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  if(!u || !p){ alert('Preencha usuário e senha.'); return; }
+  const btn = document.querySelector('#login-page .btn-primary');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+  btn.disabled = true;
+  try {
+    // Verifica master primeiro (não está no banco)
+    if(u === MASTER.usuario && p === MASTER.senha){
+      usuarioLogado = MASTER;
       await loadAllData();
-      document.getElementById('login-page').style.display='none';
-      document.getElementById('main').style.display='flex';
-      nav('dashboard');
-    } catch(e) {
+      entrarNoSistema();
+      return;
+    }
+    // Busca usuário no Firestore
+    await DB.load('usuarios');
+    const usr = cache.usuarios.find(x => x.usuario === u && x.senha === p && x.ativo !== false);
+    if(usr){
+      usuarioLogado = usr;
+      await loadAllData();
+      entrarNoSistema();
+    } else {
+      alert('Usuário ou senha incorretos, ou usuário inativo.');
       btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
       btn.disabled = false;
-      alert('Erro ao conectar ao banco de dados. Verifique sua conexão e tente novamente.\n\n' + e.message);
     }
-  } else {
-    alert('Usuário ou senha incorretos.');
+  } catch(e) {
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+    btn.disabled = false;
+    alert('Erro ao conectar. Verifique sua conexão.\n\n' + e.message);
   }
 }
+
+function entrarNoSistema(){
+  // Atualiza sidebar com dados do usuário logado
+  const isMaster = usuarioLogado.perfil === 'master';
+  document.getElementById('sidebar-user-nome').textContent = usuarioLogado.nome || usuarioLogado.usuario;
+  document.getElementById('sidebar-user-perfil').textContent = isMaster ? 'Master' : (usuarioLogado.perfil === 'admin' ? 'Administrador' : 'Operador');
+  document.getElementById('sidebar-avatar').textContent = (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
+  // Mostra menu de usuários só para master
+  document.getElementById('nav-usuarios-wrap').style.display = isMaster ? 'block' : 'none';
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('main').style.display = 'flex';
+  nav('dashboard');
+}
+
 async function loadAllData(){
   await Promise.all([
     DB.load('clientes'),
@@ -366,15 +402,146 @@ async function loadAllData(){
     DB.load('garantias'),
   ]);
 }
-async function reloadAndRender(page){
-  await loadAllData();
-  nav(page||currentPage);
-}
+
 function doLogout(){
-  document.getElementById('login-page').style.display='flex';
-  document.getElementById('main').style.display='none';
+  usuarioLogado = null;
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  const btn = document.querySelector('#login-page .btn-primary');
+  btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+  btn.disabled = false;
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('main').style.display = 'none';
 }
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+// ==================== USUÁRIOS ====================
+function renderUsuarios(){
+  // Só master pode acessar
+  if(!usuarioLogado || usuarioLogado.perfil !== 'master'){ nav('dashboard'); return; }
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-user-shield"></i> Gerenciar Usuários</h2>
+    <button class="btn btn-primary" onclick="modalUsuario()"><i class="fas fa-plus"></i> Novo Usuário</button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
+    <tbody id="tab-usuarios"></tbody>
+  </table></div>`;
+  renderTabUsuarios();
+}
+
+function renderTabUsuarios(){
+  const lista = DB.usuarios();
+  // Linha do master (fixo, não editável)
+  const masterRow = `<tr>
+    <td><span style="font-weight:600">Administrador</span> <span class="badge badge-yellow" style="margin-left:4px">Master</span></td>
+    <td>Administrador</td>
+    <td><span class="badge badge-purple">Master</span></td>
+    <td><span class="badge badge-green">Ativo</span></td>
+    <td><div class="table-actions"><span class="text-muted text-sm"><i class="fas fa-lock"></i> Protegido</span></div></td>
+  </tr>`;
+  const rows = lista.map(u=>`<tr>
+    <td style="font-weight:500">${u.nome||'-'}</td>
+    <td>${u.usuario}</td>
+    <td><span class="badge ${u.perfil==='admin'?'badge-blue':'badge-gray'}">${u.perfil==='admin'?'Administrador':'Operador'}</span></td>
+    <td>${u.ativo!==false?'<span class="badge badge-green">Ativo</span>':'<span class="badge badge-red">Inativo</span>'}</td>
+    <td><div class="table-actions">
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="modalUsuario('${u.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="toggleUsuario('${u.id}')" title="${u.ativo!==false?'Desativar':'Ativar'}">
+        <i class="fas fa-${u.ativo!==false?'ban':'check'}"></i>
+      </button>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="deletarUsuario('${u.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+    </div></td>
+  </tr>`).join('');
+  document.getElementById('tab-usuarios').innerHTML = masterRow + (rows || `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-users"></i><p>Nenhum usuário adicional cadastrado</p></div></td></tr>`);
+}
+
+function modalUsuario(id){
+  const u = id ? DB.usuarios().find(x=>x.id===id) : {};
+  openModal(`<div class="modal">
+    <div class="modal-header">
+      <h3>${id?'Editar':'Novo'} Usuário</h3>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="form-group"><label>Nome completo *</label><input id="u-nome" value="${u.nome||''}" placeholder="Nome do funcionário"></div>
+        <div class="form-group"><label>Usuário (login) *</label><input id="u-usuario" value="${u.usuario||''}" placeholder="Ex: joao.silva"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Senha ${id?'(deixe vazio para manter)':' *'}</label>
+          <input id="u-senha" type="password" placeholder="${id?'Nova senha (opcional)':'Senha de acesso'}">
+        </div>
+        <div class="form-group"><label>Confirmar senha</label>
+          <input id="u-senha2" type="password" placeholder="Repita a senha">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Perfil *</label>
+          <select id="u-perfil">
+            <option value="operador"${(u.perfil||'operador')==='operador'?' selected':''}>Operador</option>
+            <option value="admin"${u.perfil==='admin'?' selected':''}>Administrador</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="u-ativo">
+            <option value="true"${u.ativo!==false?' selected':''}>Ativo</option>
+            <option value="false"${u.ativo===false?' selected':''}>Inativo</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-sm" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)">
+        <p class="text-sm"><i class="fas fa-info-circle text-accent"></i> <strong>Perfis:</strong></p>
+        <p class="text-sm text-muted mt-2"><strong>Operador:</strong> acessa clientes, veículos, OS e orçamentos.</p>
+        <p class="text-sm text-muted"><strong>Administrador:</strong> acesso completo incluindo relatórios.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarUsuario('${id||''}')"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>`);
+}
+
+async function salvarUsuario(id){
+  const nome = get('u-nome');
+  const usuario = get('u-usuario');
+  const senha = document.getElementById('u-senha').value;
+  const senha2 = document.getElementById('u-senha2').value;
+  const perfil = get('u-perfil');
+  const ativo = get('u-ativo') !== 'false';
+
+  if(!nome || !usuario){ toast('Preencha nome e usuário','error'); return; }
+  if(!id && !senha){ toast('Informe a senha','error'); return; }
+  if(senha && senha !== senha2){ toast('As senhas não coincidem','error'); return; }
+  if(senha && senha.length < 6){ toast('A senha deve ter ao menos 6 caracteres','error'); return; }
+  // Verifica conflito de usuário
+  const existente = DB.usuarios().find(x => x.usuario === usuario && x.id !== id);
+  if(existente || usuario === 'Administrador'){ toast('Este nome de usuário já está em uso','error'); return; }
+
+  const base = id ? DB.usuarios().find(x=>x.id===id) : { id:'usr_'+Date.now() };
+  const item = { ...base, nome, usuario, perfil, ativo };
+  if(senha) item.senha = senha;
+
+  await DB.save('usuarios', item);
+  closeModal(); renderTabUsuarios(); toast(id ? 'Usuário atualizado!' : 'Usuário criado!');
+}
+
+async function toggleUsuario(id){
+  const u = DB.usuarios().find(x=>x.id===id); if(!u) return;
+  const item = {...u, ativo: u.ativo === false ? true : false};
+  await DB.save('usuarios', item);
+  renderTabUsuarios();
+  toast(item.ativo ? 'Usuário ativado' : 'Usuário desativado');
+}
+
+async function deletarUsuario(id){
+  if(!confirm2('Excluir este usuário permanentemente?')) return;
+  await DB.remove('usuarios', id);
+  renderTabUsuarios(); toast('Usuário excluído');
+}
 
 // ==================== NAV ====================
 let currentPage='';
@@ -383,9 +550,9 @@ function nav(page){
   document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
   const el=document.getElementById('nav-'+page);
   if(el)el.classList.add('active');
-  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios',usuarios:'Usuários'};
   document.getElementById('topbar-title').textContent=titles[page]||page;
-  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios};
+  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios,usuarios:renderUsuarios};
   if(pages[page])pages[page]();
   closeSidebar();
 }
@@ -1515,7 +1682,8 @@ Object.assign(window, {
   modalGarantia, salvarGarantia, deletarGarantia,
   renderHistorico, buscarHistorico, navHistorico,
   quickSearchDash, globalSearch, closeModal, doPrint,
-  loadVeiculosCli, calcGarFim
+  loadVeiculosCli, calcGarFim,
+  renderUsuarios, modalUsuario, salvarUsuario, deletarUsuario, toggleUsuario
 });
 </script>
 </body>
