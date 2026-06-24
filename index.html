@@ -1040,16 +1040,24 @@ async function salvarOrcamento(id){
   const vp=orcPecas.reduce((a,p)=>a+(p.valor*(p.qtd||1)),0);
   const vs=orcServicos.reduce((a,s)=>a+parseFloat(s.valor||0),0);
   const total=Math.max(0,mo+vp+vs-desc);
+  const novoStatus=get('o-status');
   const base = id ? DB.orcamentos().find(x=>x.id===id) : {id:'orc_'+Date.now(), numero: await DB.nextId('ORC'), osGerada:false};
-  const item = {...base, clienteId:cliId, veiculoId:veiId, data:get('o-data'), queixa:get('o-queixa'), diagnostico:get('o-diag'), servicos:orcServicos, pecas:orcPecas, maoDeObra:mo, valorPecas:vp, desconto:desc, total, validade:get('o-valid'), status:get('o-status')};
+  const item = {...base, clienteId:cliId, veiculoId:veiId, data:get('o-data'), queixa:get('o-queixa'), diagnostico:get('o-diag'), servicos:orcServicos, pecas:orcPecas, maoDeObra:mo, valorPecas:vp, desconto:desc, total, validade:get('o-valid'), status:novoStatus};
   await DB.save('orcamentos', item);
-  closeModal(); renderTabOrcamentos(); toast('Orçamento salvo!');
+  closeModal();
+  // Se aprovado e ainda não gerou OS, gera automaticamente
+  if(novoStatus==='aprovado' && !item.osGerada){
+    await gerarOS(item.id, true);
+  } else {
+    renderTabOrcamentos();
+    toast('Orçamento salvo!');
+  }
 }
 async function deletarOrcamento(id){
   if(!confirm2('Excluir este orçamento?'))return;
   await DB.remove('orcamentos', id); renderTabOrcamentos(); toast('Orçamento excluído');
 }
-async function gerarOS(orcId){
+async function gerarOS(orcId, silencioso=false){
   const o=DB.orcamentos().find(x=>x.id===orcId);if(!o)return;
   const osId='os_'+Date.now();
   const numero=await DB.nextId('OS');
@@ -1057,7 +1065,13 @@ async function gerarOS(orcId){
   await DB.save('ordens', os);
   const orcAtualizado={...o, osGerada:true};
   await DB.save('orcamentos', orcAtualizado);
-  toast('Ordem de Serviço criada: '+numero); nav('ordens');
+  if(silencioso){
+    toast('✅ Orçamento aprovado! OS '+numero+' criada automaticamente.');
+    renderTabOrcamentos();
+  } else {
+    toast('Ordem de Serviço criada: '+numero);
+    nav('ordens');
+  }
 }
 function verOrcamento(id){
   const o=DB.orcamentos().find(x=>x.id===id);if(!o)return;
@@ -1171,6 +1185,12 @@ function modalOS(id){
         <div></div>
       </div>
       <div class="form-group"><label>Observações internas</label><textarea id="os-obs">${o.obsInternas||''}</textarea></div>
+      <div class="section-divider"></div>
+      <div class="flex-center gap-2 mb-1">
+        <p class="section-title" style="margin:0"><i class="fas fa-shield-alt" style="color:var(--green)"></i> Garantias desta OS</p>
+        <button class="btn btn-ghost btn-sm" id="btn-add-gar-os"><i class="fas fa-plus"></i> Add Garantia</button>
+      </div>
+      <div id="os-garantias-list"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -1178,7 +1198,50 @@ function modalOS(id){
     </div>
   </div>`);
   if(o.clienteId)loadVeiculosCli('os-vei',o.clienteId,o.veiculoId);
+  // Carrega garantias existentes desta OS
+  osGarantias = id ? DB.garantias().filter(x=>x.osId===id).map(g=>({...g})) : [];
   renderOSLists();
+  renderOSGarantias();
+  // Bind botão add garantia
+  setTimeout(()=>{
+    const btn=document.getElementById('btn-add-gar-os');
+    if(btn) btn.onclick=()=>{ osGarantias.push({item:'',tipo:'servico',prazo:90,dataInicio:today(),dataFim:addDays(today(),90)}); renderOSGarantias(); };
+  },50);
+}
+let osGarantias=[];
+function renderOSGarantias(){
+  const el=document.getElementById('os-garantias-list');
+  if(!el)return;
+  if(osGarantias.length===0){el.innerHTML='<p class="text-muted text-sm mb-1">Nenhuma garantia cadastrada nesta OS</p>';return;}
+  el.innerHTML=osGarantias.map((g,i)=>`
+    <div class="card-sm mb-1" style="display:grid;grid-template-columns:1fr 100px 80px 130px 130px 36px;gap:8px;align-items:center">
+      <input placeholder="Item com garantia" value="${g.item||''}" data-type="gar-item" data-idx="${i}">
+      <select data-type="gar-tipo" data-idx="${i}">
+        <option value="servico"${(g.tipo||'servico')==='servico'?' selected':''}>Serviço</option>
+        <option value="peca"${g.tipo==='peca'?' selected':''}>Peça</option>
+      </select>
+      <input type="number" placeholder="Dias" value="${g.prazo||90}" data-type="gar-prazo" data-idx="${i}">
+      <input type="date" value="${g.dataInicio||today()}" data-type="gar-inicio" data-idx="${i}">
+      <input type="date" value="${g.dataFim||addDays(today(),90)}" data-type="gar-fim" data-idx="${i}" readonly style="opacity:.7">
+      <button class="btn btn-danger btn-sm btn-icon" data-type="gar-del" data-idx="${i}"><i class="fas fa-times"></i></button>
+    </div>`).join('');
+  // Labels acima apenas na primeira linha
+  document.querySelectorAll('[data-type^="gar-"]').forEach(el=>{
+    const t=el.dataset.type, i=parseInt(el.dataset.idx);
+    if(t==='gar-item') el.oninput=e=>{osGarantias[i].item=e.target.value};
+    if(t==='gar-tipo') el.onchange=e=>{osGarantias[i].tipo=e.target.value};
+    if(t==='gar-prazo') el.oninput=e=>{
+      osGarantias[i].prazo=parseInt(e.target.value||90);
+      osGarantias[i].dataFim=addDays(osGarantias[i].dataInicio||today(),osGarantias[i].prazo);
+      renderOSGarantias();
+    };
+    if(t==='gar-inicio') el.onchange=e=>{
+      osGarantias[i].dataInicio=e.target.value;
+      osGarantias[i].dataFim=addDays(e.target.value,osGarantias[i].prazo||90);
+      renderOSGarantias();
+    };
+    if(t==='gar-del') el.onclick=()=>{osGarantias.splice(i,1);renderOSGarantias()};
+  });
 }
 function addOSItem(tipo){
   if(tipo==='servico')osServicos.push({desc:'',valor:0});
@@ -1237,6 +1300,26 @@ async function salvarOS(id){
   const base = id ? DB.ordens().find(x=>x.id===id) : {id:'os_'+Date.now(), numero: await DB.nextId('OS')};
   const item = {...base, clienteId:cliId, veiculoId:veiId, dataEntrada:get('os-data'), km:get('os-km'), queixa:get('os-queixa'), diagnostico:get('os-diag'), servicos:osServicos, pecas:osPecas, maoDeObra:mo, valorPecas:vp, desconto:desc, total, formaPagamento:get('os-pgto'), dataEntrega:get('os-entrega'), obsInternas:get('os-obs'), status:get('os-status')};
   await DB.save('ordens', item);
+  // Salva garantias: remove antigas desta OS e salva as novas
+  if(id){
+    const antigas = DB.garantias().filter(x=>x.osId===id);
+    for(const g of antigas) await DB.remove('garantias', g.id);
+  }
+  for(const g of osGarantias){
+    if(!g.item) continue; // ignora linhas sem item
+    const garItem = {
+      id: g.id||'gar_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      osId: item.id,
+      item: g.item,
+      tipo: g.tipo||'servico',
+      prazo: parseInt(g.prazo||90),
+      dataInicio: g.dataInicio||today(),
+      dataFim: g.dataFim||addDays(g.dataInicio||today(), parseInt(g.prazo||90)),
+      obs: g.obs||''
+    };
+    await DB.save('garantias', garItem);
+  }
+  await DB.load('garantias');
   closeModal(); renderTabOS(); toast('OS salva!');
 }
 async function deletarOS(id){
