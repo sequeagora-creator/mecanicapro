@@ -217,6 +217,31 @@ table tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 </div>
 
+<!-- TELA DE LICENÇA BLOQUEADA -->
+<div id="licenca-page" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:998;display:none;align-items:center;justify-content:center;flex-direction:column;padding:24px">
+  <div style="max-width:480px;width:100%;text-align:center">
+    <div style="width:72px;height:72px;background:rgba(239,68,68,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;color:var(--red)">
+      <i class="fas fa-lock"></i>
+    </div>
+    <h2 id="lic-titulo" style="font-size:22px;margin-bottom:8px">Sistema Bloqueado</h2>
+    <p id="lic-msg" class="text-muted" style="margin-bottom:24px;line-height:1.6">Seu período de acesso expirou. Entre em contato com o suporte para renovar sua licença.</p>
+    <div id="lic-info" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;margin-bottom:20px;text-align:left"></div>
+    <p class="text-muted text-sm">📞 Contato: <strong>suporte@mecanicapro.com.br</strong></p>
+    <div style="margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('licenca-admin-wrap').style.display='block'">
+        <i class="fas fa-key"></i> Acesso administrativo
+      </button>
+    </div>
+    <div id="licenca-admin-wrap" style="display:none;margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:16px">
+      <div class="form-group"><label>Usuário admin</label><input id="lic-admin-user" placeholder="Usuário"></div>
+      <div class="form-group"><label>Senha</label><input type="password" id="lic-admin-pass" placeholder="Senha"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="acessoAdminLicenca()">
+        <i class="fas fa-unlock"></i> Acessar painel de licença
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- SIDEBAR OVERLAY -->
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
@@ -242,6 +267,7 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <div id="nav-usuarios-wrap" style="display:none">
       <span class="nav-section">Administração</span>
       <a href="javascript:void(0)" onclick="nav('usuarios')" id="nav-usuarios"><i class="fas fa-user-shield"></i> Usuários</a>
+      <a href="javascript:void(0)" onclick="nav('licenca')" id="nav-licenca"><i class="fas fa-key"></i> Licença</a>
     </div>
   </nav>
   <div class="sidebar-user">
@@ -344,7 +370,7 @@ const DB = {
 };
 
 // ==================== AUTH ====================
-const MASTER = { usuario: 'Administrador', senha: 'Estrela3342@', nome: 'Administrador', perfil: 'master' };
+const MASTER = { usuario: 'suporte', senha: 'Estrela3342@', nome: 'Suporte', perfil: 'suporte' };
 
 async function doLogin(){
   const u = document.getElementById('login-user').value.trim();
@@ -357,8 +383,17 @@ async function doLogin(){
     // Verifica master primeiro (não está no banco)
     if(u === MASTER.usuario && p === MASTER.senha){
       usuarioLogado = MASTER;
+      // Master bypassa verificação de licença
       await loadAllData();
       entrarNoSistema();
+      return;
+    }
+    // Verifica licença antes de logar usuário normal
+    const licResult = await verificarLicenca();
+    if(!licResult.permitido){
+      mostrarTelaBloqueio(licResult);
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+      btn.disabled = false;
       return;
     }
     // Busca usuário no Firestore
@@ -368,6 +403,8 @@ async function doLogin(){
       usuarioLogado = usr;
       await loadAllData();
       entrarNoSistema();
+      // Avisa se licença está vencendo
+      if(licResult.diasRestantes !== undefined) mostrarAvisoLicenca(licResult.diasRestantes);
     } else {
       alert('Usuário ou senha incorretos, ou usuário inativo.');
       btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
@@ -381,13 +418,16 @@ async function doLogin(){
 }
 
 function entrarNoSistema(){
-  // Atualiza sidebar com dados do usuário logado
-  const isMaster = usuarioLogado.perfil === 'master';
+  const isSuporte = usuarioLogado.perfil === 'suporte';
+  const isAdmin   = usuarioLogado.perfil === 'admin';
+  // Sidebar: nome e perfil
   document.getElementById('sidebar-user-nome').textContent = usuarioLogado.nome || usuarioLogado.usuario;
-  document.getElementById('sidebar-user-perfil').textContent = isMaster ? 'Master' : (usuarioLogado.perfil === 'admin' ? 'Administrador' : 'Operador');
-  document.getElementById('sidebar-avatar').textContent = (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
-  // Mostra menu de usuários só para master
-  document.getElementById('nav-usuarios-wrap').style.display = isMaster ? 'block' : 'none';
+  document.getElementById('sidebar-user-perfil').textContent =
+    isSuporte ? 'Suporte' : (isAdmin ? 'Administrador' : 'Operador');
+  document.getElementById('sidebar-avatar').textContent =
+    (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
+  // Menu Administração: só suporte vê Usuários E Licença
+  document.getElementById('nav-usuarios-wrap').style.display = isSuporte ? 'block' : 'none';
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('main').style.display = 'flex';
   nav('dashboard');
@@ -415,10 +455,258 @@ function doLogout(){
 }
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 
-// ==================== USUÁRIOS ====================
+// ==================== LICENÇA ====================
+const SUPER_ADMIN = { usuario: 'superadmin', senha: 'MecPro@2024#Master' };
+let licencaAtual = null;
+
+const PLANOS = {
+  trial:     { label: 'Teste Grátis',  dias: 15,  cor: 'badge-yellow' },
+  mensal:    { label: 'Mensal',        dias: 30,  cor: 'badge-blue'   },
+  semestral: { label: 'Semestral',     dias: 180, cor: 'badge-purple' },
+  anual:     { label: 'Anual',         dias: 365, cor: 'badge-green'  },
+};
+
+async function verificarLicenca(){
+  try {
+    const snap = await getDoc(doc(db, 'licenca', 'config'));
+    if(!snap.exists()){
+      // Primeira vez — cria trial de 15 dias automaticamente
+      const lic = {
+        status: 'trial',
+        plano: 'trial',
+        cliente: 'Nova Oficina',
+        dataInicio: today(),
+        dataExpiracao: addDays(today(), 15),
+        criadoEm: today()
+      };
+      await setDoc(doc(db, 'licenca', 'config'), lic);
+      licencaAtual = lic;
+      return { permitido: true, licenca: lic };
+    }
+    const lic = snap.data();
+    licencaAtual = lic;
+    const diasRestantes = diffDays(today(), lic.dataExpiracao);
+    if(diasRestantes < 0){
+      return { permitido: false, licenca: lic, motivo: 'expirado', diasRestantes };
+    }
+    if(lic.status === 'bloqueado'){
+      return { permitido: false, licenca: lic, motivo: 'bloqueado', diasRestantes };
+    }
+    return { permitido: true, licenca: lic, diasRestantes };
+  } catch(e) {
+    // Erro de conexão — permite entrar mas avisa
+    return { permitido: true, erro: true };
+  }
+}
+
+function mostrarTelaBloqueio(resultado){
+  const { licenca, motivo, diasRestantes } = resultado;
+  const page = document.getElementById('licenca-page');
+  page.style.display = 'flex';
+  document.getElementById('login-page').style.display = 'none';
+
+  if(motivo === 'expirado'){
+    document.getElementById('lic-titulo').textContent = '⏰ Licença Expirada';
+    document.getElementById('lic-msg').textContent = `Seu período de acesso encerrou em ${fmtDate(licenca.dataExpiracao)}. Entre em contato para renovar.`;
+  } else {
+    document.getElementById('lic-titulo').textContent = '🔒 Sistema Bloqueado';
+    document.getElementById('lic-msg').textContent = 'O acesso foi bloqueado pelo administrador. Entre em contato com o suporte.';
+  }
+
+  const plano = PLANOS[licenca.plano] || { label: licenca.plano };
+  document.getElementById('lic-info').innerHTML = `
+    <div class="info-row"><span class="label">Cliente</span><span class="value">${licenca.cliente||'-'}</span></div>
+    <div class="info-row"><span class="label">Plano</span><span class="value"><span class="badge ${plano.cor||'badge-gray'}">${plano.label}</span></span></div>
+    <div class="info-row"><span class="label">Início</span><span class="value">${fmtDate(licenca.dataInicio)}</span></div>
+    <div class="info-row"><span class="label">Expiração</span><span class="value">${fmtDate(licenca.dataExpiracao)}</span></div>
+  `;
+}
+
+function acessoAdminLicenca(){
+  const u = document.getElementById('lic-admin-user').value.trim();
+  const p = document.getElementById('lic-admin-pass').value;
+  if((u === MASTER.usuario && p === MASTER.senha) || (u === SUPER_ADMIN.usuario && p === SUPER_ADMIN.senha)){
+    document.getElementById('licenca-page').style.display = 'none';
+    usuarioLogado = MASTER;
+    document.getElementById('sidebar-user-nome').textContent = 'Suporte';
+    document.getElementById('sidebar-user-perfil').textContent = 'Suporte';
+    document.getElementById('sidebar-avatar').textContent = 'S';
+    document.getElementById('nav-usuarios-wrap').style.display = 'block';
+    document.getElementById('main').style.display = 'flex';
+    nav('licenca');
+  } else {
+    toast('Credenciais inválidas', 'error');
+  }
+}
+
+function renderLicenca(){
+  if(!usuarioLogado || usuarioLogado.perfil !== 'suporte'){ nav('dashboard'); return; }
+  const lic = licencaAtual || {};
+  const plano = PLANOS[lic.plano] || { label: lic.plano||'-', cor:'badge-gray' };
+  const diasRestantes = lic.dataExpiracao ? diffDays(today(), lic.dataExpiracao) : 0;
+  const expirado = diasRestantes < 0;
+
+  document.getElementById('content').innerHTML = `
+  <div class="page-header">
+    <h2><i class="fas fa-key"></i> Gerenciar Licença</h2>
+  </div>
+
+  <!-- Status atual -->
+  <div class="grid-3 mb-2">
+    <div class="stat-card" style="border-color:${expirado?'var(--red)':'var(--green)'}">
+      <div class="stat-icon" style="background:${expirado?'rgba(239,68,68,.15)':'rgba(34,197,94,.15)'};color:${expirado?'var(--red)':'var(--green)'}">
+        <i class="fas fa-${expirado?'times-circle':'check-circle'}"></i>
+      </div>
+      <div class="stat-label">Status</div>
+      <div class="stat-value" style="font-size:16px;color:${expirado?'var(--red)':'var(--green)'}">
+        ${expirado ? 'EXPIRADO' : (lic.status==='bloqueado' ? 'BLOQUEADO' : 'ATIVO')}
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,.15);color:var(--accent)"><i class="fas fa-calendar-alt"></i></div>
+      <div class="stat-label">Dias restantes</div>
+      <div class="stat-value text-accent">${expirado ? '0' : diasRestantes}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(168,85,247,.15);color:var(--purple)"><i class="fas fa-tag"></i></div>
+      <div class="stat-label">Plano atual</div>
+      <div class="stat-value" style="font-size:16px"><span class="badge ${plano.cor}">${plano.label}</span></div>
+    </div>
+  </div>
+
+  <!-- Info da licença atual -->
+  <div class="grid-2 mb-2">
+    <div class="card">
+      <h3 class="mb-2"><i class="fas fa-info-circle text-accent"></i> Dados da Licença</h3>
+      <div class="info-row"><span class="label">Cliente</span><span class="value">${lic.cliente||'-'}</span></div>
+      <div class="info-row"><span class="label">Plano</span><span class="value"><span class="badge ${plano.cor}">${plano.label}</span></span></div>
+      <div class="info-row"><span class="label">Data de início</span><span class="value">${fmtDate(lic.dataInicio)}</span></div>
+      <div class="info-row"><span class="label">Expiração</span><span class="value">${fmtDate(lic.dataExpiracao)}</span></div>
+      <div class="info-row"><span class="label">Status</span><span class="value">${lic.status||'-'}</span></div>
+      ${diasRestantes > 0 && diasRestantes <= 7 ? `<div class="mt-2"><span class="badge badge-red"><i class="fas fa-exclamation-triangle"></i> Vence em ${diasRestantes} dias!</span></div>` : ''}
+    </div>
+
+    <!-- Ações rápidas -->
+    <div class="card">
+      <h3 class="mb-2"><i class="fas fa-tools text-accent"></i> Ações Rápidas</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-success" onclick="renovarPlano('mensal')"><i class="fas fa-sync"></i> Renovar — Mensal (30 dias)</button>
+        <button class="btn btn-success" onclick="renovarPlano('semestral')"><i class="fas fa-sync"></i> Renovar — Semestral (180 dias)</button>
+        <button class="btn btn-success" onclick="renovarPlano('anual')"><i class="fas fa-sync"></i> Renovar — Anual (365 dias)</button>
+        <hr style="border-color:var(--border)">
+        <button class="btn btn-ghost" onclick="renovarPlano('trial')"><i class="fas fa-gift"></i> Liberar Trial (15 dias)</button>
+        ${lic.status !== 'bloqueado'
+          ? `<button class="btn btn-danger" onclick="bloquearLicenca()"><i class="fas fa-lock"></i> Bloquear acesso</button>`
+          : `<button class="btn btn-success" onclick="desbloquearLicenca()"><i class="fas fa-unlock"></i> Desbloquear acesso</button>`}
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuração manual -->
+  <div class="card mb-2">
+    <h3 class="mb-2"><i class="fas fa-sliders-h text-accent"></i> Configuração Manual</h3>
+    <div class="grid-3">
+      <div class="form-group"><label>Nome do cliente/oficina</label><input id="lic-cliente" value="${lic.cliente||''}"></div>
+      <div class="form-group"><label>Plano</label>
+        <select id="lic-plano">
+          ${Object.entries(PLANOS).map(([k,v])=>`<option value="${k}"${lic.plano===k?' selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select id="lic-status">
+          <option value="trial"${lic.status==='trial'?' selected':''}>Trial</option>
+          <option value="ativo"${lic.status==='ativo'?' selected':''}>Ativo</option>
+          <option value="bloqueado"${lic.status==='bloqueado'?' selected':''}>Bloqueado</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="form-group"><label>Data de início</label><input id="lic-inicio" type="date" value="${lic.dataInicio||today()}"></div>
+      <div class="form-group"><label>Data de expiração</label><input id="lic-expira" type="date" value="${lic.dataExpiracao||''}"></div>
+      <div class="form-group" style="display:flex;align-items:flex-end">
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="salvarLicencaManual()">
+          <i class="fas fa-save"></i> Salvar configuração
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Histórico de avisos -->
+  <div class="card">
+    <h3 class="mb-2"><i class="fas fa-history text-accent"></i> Resumo dos Planos</h3>
+    <div class="grid-4">
+      ${Object.entries(PLANOS).map(([k,v])=>`
+      <div class="card-sm" style="text-align:center">
+        <span class="badge ${v.cor}" style="margin-bottom:8px;display:inline-block">${v.label}</span>
+        <div style="font-size:22px;font-weight:700">${v.dias}</div>
+        <div class="text-muted text-sm">dias de acesso</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+async function renovarPlano(plano){
+  const p = PLANOS[plano];
+  if(!p) return;
+  if(!confirm2(`Ativar plano ${p.label} (${p.dias} dias) a partir de hoje?`)) return;
+  const lic = {
+    ...licencaAtual,
+    plano,
+    status: plano === 'trial' ? 'trial' : 'ativo',
+    dataInicio: today(),
+    dataExpiracao: addDays(today(), p.dias),
+    renovadoEm: today()
+  };
+  await setDoc(doc(db, 'licenca', 'config'), lic);
+  licencaAtual = lic;
+  toast(`✅ Plano ${p.label} ativado! Válido até ${fmtDate(lic.dataExpiracao)}`);
+  renderLicenca();
+}
+
+async function bloquearLicenca(){
+  if(!confirm2('Bloquear o acesso ao sistema? O usuário verá a tela de bloqueio.')) return;
+  const lic = {...licencaAtual, status: 'bloqueado'};
+  await setDoc(doc(db, 'licenca', 'config'), lic);
+  licencaAtual = lic;
+  toast('Sistema bloqueado.');
+  renderLicenca();
+}
+
+async function desbloquearLicenca(){
+  const lic = {...licencaAtual, status: 'ativo', dataExpiracao: licencaAtual.dataExpiracao || addDays(today(), 30)};
+  await setDoc(doc(db, 'licenca', 'config'), lic);
+  licencaAtual = lic;
+  toast('✅ Sistema desbloqueado!');
+  renderLicenca();
+}
+
+async function salvarLicencaManual(){
+  const plano = document.getElementById('lic-plano').value;
+  const lic = {
+    ...licencaAtual,
+    cliente: document.getElementById('lic-cliente').value.trim(),
+    plano,
+    status: document.getElementById('lic-status').value,
+    dataInicio: document.getElementById('lic-inicio').value,
+    dataExpiracao: document.getElementById('lic-expira').value,
+    atualizadoEm: today()
+  };
+  await setDoc(doc(db, 'licenca', 'config'), lic);
+  licencaAtual = lic;
+  toast('✅ Licença atualizada!');
+  renderLicenca();
+}
+
+function mostrarAvisoLicenca(diasRestantes){
+  if(diasRestantes <= 7 && diasRestantes >= 0){
+    setTimeout(()=>{
+      toast(`⚠️ Licença vence em ${diasRestantes} dia(s)! Renove para continuar.`, 'error');
+    }, 2000);
+  }
+}
 function renderUsuarios(){
-  // Só master pode acessar
-  if(!usuarioLogado || usuarioLogado.perfil !== 'master'){ nav('dashboard'); return; }
+  // Só suporte pode acessar
+  if(!usuarioLogado || usuarioLogado.perfil !== 'suporte'){ nav('dashboard'); return; }
   document.getElementById('content').innerHTML=`
   <div class="page-header">
     <h2><i class="fas fa-user-shield"></i> Gerenciar Usuários</h2>
@@ -435,9 +723,9 @@ function renderTabUsuarios(){
   const lista = DB.usuarios();
   // Linha do master (fixo, não editável)
   const masterRow = `<tr>
-    <td><span style="font-weight:600">Administrador</span> <span class="badge badge-yellow" style="margin-left:4px">Master</span></td>
-    <td>Administrador</td>
-    <td><span class="badge badge-purple">Master</span></td>
+    <td><span style="font-weight:600">Suporte</span> <span class="badge badge-yellow" style="margin-left:4px">Sistema</span></td>
+    <td>suporte</td>
+    <td><span class="badge badge-purple">Suporte</span></td>
     <td><span class="badge badge-green">Ativo</span></td>
     <td><div class="table-actions"><span class="text-muted text-sm"><i class="fas fa-lock"></i> Protegido</span></div></td>
   </tr>`;
@@ -519,7 +807,7 @@ async function salvarUsuario(id){
   if(senha && senha.length < 6){ toast('A senha deve ter ao menos 6 caracteres','error'); return; }
   // Verifica conflito de usuário
   const existente = DB.usuarios().find(x => x.usuario === usuario && x.id !== id);
-  if(existente || usuario === 'Administrador'){ toast('Este nome de usuário já está em uso','error'); return; }
+  if(existente || usuario === 'suporte'){ toast('Este nome de usuário já está em uso','error'); return; }
 
   const base = id ? DB.usuarios().find(x=>x.id===id) : { id:'usr_'+Date.now() };
   const item = { ...base, nome, usuario, perfil, ativo };
@@ -550,9 +838,9 @@ function nav(page){
   document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
   const el=document.getElementById('nav-'+page);
   if(el)el.classList.add('active');
-  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios',usuarios:'Usuários'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios',usuarios:'Usuários',licenca:'Licença do Sistema'};
   document.getElementById('topbar-title').textContent=titles[page]||page;
-  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios,usuarios:renderUsuarios};
+  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios,usuarios:renderUsuarios,licenca:renderLicenca};
   if(pages[page])pages[page]();
   closeSidebar();
 }
@@ -1766,7 +2054,8 @@ Object.assign(window, {
   renderHistorico, buscarHistorico, navHistorico,
   quickSearchDash, globalSearch, closeModal, doPrint,
   loadVeiculosCli, calcGarFim,
-  renderUsuarios, modalUsuario, salvarUsuario, deletarUsuario, toggleUsuario
+  renderUsuarios, modalUsuario, salvarUsuario, deletarUsuario, toggleUsuario,
+  renderLicenca, renovarPlano, bloquearLicenca, desbloquearLicenca, salvarLicencaManual, acessoAdminLicenca
 });
 </script>
 </body>
