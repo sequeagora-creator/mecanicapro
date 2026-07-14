@@ -263,7 +263,12 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <span class="nav-section">Controle</span>
     <a href="javascript:void(0)" onclick="nav('garantias')" id="nav-garantias"><i class="fas fa-shield-alt"></i> Garantias</a>
     <a href="javascript:void(0)" onclick="nav('historico')" id="nav-historico"><i class="fas fa-history"></i> Histórico</a>
+    <a href="javascript:void(0)" onclick="nav('estoque')" id="nav-estoque"><i class="fas fa-boxes"></i> Estoque</a>
     <a href="javascript:void(0)" onclick="nav('relatorios')" id="nav-relatorios"><i class="fas fa-chart-bar"></i> Relatórios</a>
+    <div id="nav-oficina-wrap" style="display:none">
+      <span class="nav-section">Configurações</span>
+      <a href="javascript:void(0)" onclick="nav('oficina')" id="nav-oficina"><i class="fas fa-store"></i> Dados da Oficina</a>
+    </div>
     <div id="nav-usuarios-wrap" style="display:none">
       <span class="nav-section">Administração</span>
       <a href="javascript:void(0)" onclick="nav('usuarios')" id="nav-usuarios"><i class="fas fa-user-shield"></i> Usuários</a>
@@ -316,7 +321,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Cache local para performance
-const cache = { clientes:[], veiculos:[], orcamentos:[], ordens:[], garantias:[], usuarios:[] };
+const cache = { clientes:[], veiculos:[], orcamentos:[], ordens:[], garantias:[], usuarios:[], estoque:[], estoque_mov:[] };
 
 // Usuário logado atualmente
 let usuarioLogado = null;
@@ -330,6 +335,8 @@ const DB = {
   ordens(){ return cache.ordens },
   garantias(){ return cache.garantias },
   usuarios(){ return cache.usuarios },
+  estoque(){ return cache.estoque },
+  estoque_mov(){ return cache.estoque_mov },
 
   // Carrega coleção do Firestore para o cache
   async load(col){
@@ -428,8 +435,12 @@ function entrarNoSistema(){
     (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
   // Menu Administração: só suporte vê Usuários E Licença
   document.getElementById('nav-usuarios-wrap').style.display = isSuporte ? 'block' : 'none';
+  // Menu Dados da Oficina: suporte e admin
+  document.getElementById('nav-oficina-wrap').style.display = (isSuporte || isAdmin) ? 'block' : 'none';
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('main').style.display = 'flex';
+  // Atualiza nome da oficina no sidebar se disponível
+  atualizarSidebarOficina();
   nav('dashboard');
 }
 
@@ -440,6 +451,8 @@ async function loadAllData(){
     DB.load('orcamentos'),
     DB.load('ordens'),
     DB.load('garantias'),
+    DB.load('estoque'),
+    carregarOficina(),
   ]);
 }
 
@@ -532,6 +545,7 @@ function acessoAdminLicenca(){
     document.getElementById('sidebar-user-perfil').textContent = 'Suporte';
     document.getElementById('sidebar-avatar').textContent = 'S';
     document.getElementById('nav-usuarios-wrap').style.display = 'block';
+    document.getElementById('nav-oficina-wrap').style.display = 'block';
     document.getElementById('main').style.display = 'flex';
     nav('licenca');
   } else {
@@ -838,9 +852,9 @@ function nav(page){
   document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
   const el=document.getElementById('nav-'+page);
   if(el)el.classList.add('active');
-  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios',usuarios:'Usuários',licenca:'Licença do Sistema'};
+  const titles={dashboard:'Dashboard',clientes:'Clientes',veiculos:'Veículos',orcamentos:'Orçamentos',ordens:'Ordens de Serviço',garantias:'Garantias',historico:'Histórico do Veículo',relatorios:'Relatórios',usuarios:'Usuários',licenca:'Licença do Sistema',oficina:'Dados da Oficina',estoque:'Estoque de Peças'};
   document.getElementById('topbar-title').textContent=titles[page]||page;
-  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios,usuarios:renderUsuarios,licenca:renderLicenca};
+  const pages={dashboard:renderDashboard,clientes:renderClientes,veiculos:renderVeiculos,orcamentos:renderOrcamentos,ordens:renderOrdens,garantias:renderGarantias,historico:renderHistorico,relatorios:renderRelatorios,usuarios:renderUsuarios,licenca:renderLicenca,oficina:renderOficina,estoque:renderEstoque};
   if(pages[page])pages[page]();
   closeSidebar();
 }
@@ -1930,10 +1944,11 @@ function buildDocOS(o){
   const c=DB.clientes().find(x=>x.id===o.clienteId)||{};
   const v=DB.veiculos().find(x=>x.id===o.veiculoId)||{};
   const pgto={dinheiro:'Dinheiro',pix:'PIX',cartao_credito:'Cartão de Crédito',cartao_debito:'Cartão de Débito',boleto:'Boleto',financiamento:'Financiamento'};
+  const of=dadosOficina;
   return `<div style="font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto">
-    <div style="text-align:center;border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:20px">
-      <h1 style="font-size:22px;margin:0">🔧 MecânicaPro</h1>
-      <h2 style="font-size:16px;margin:4px 0;color:#555">ORDEM DE SERVIÇO</h2>
+    ${buildCabecalhoDoc(of)}
+    <div style="text-align:center;margin-bottom:16px">
+      <h2 style="font-size:16px;margin:0;color:#555">ORDEM DE SERVIÇO</h2>
       <h3 style="font-size:20px;color:#f59e0b;margin:4px 0">${o.numero}</h3>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
@@ -1970,6 +1985,7 @@ function buildDocOS(o){
       <tr style="border-top:2px solid #333"><td style="padding:8px;font-weight:700;font-size:15px">TOTAL</td><td style="padding:8px;text-align:right;font-weight:700;font-size:15px;color:#f59e0b">${fmt(o.total)}</td></tr>
       ${o.formaPagamento?`<tr><td style="padding:4px;font-size:12px;color:#888">Pagamento</td><td style="padding:4px;text-align:right;font-size:12px;color:#888">${pgto[o.formaPagamento]||o.formaPagamento}</td></tr>`:''}
     </table>
+    ${of.rodapeOS?`<p style="font-size:11px;color:#888;text-align:center;margin-bottom:16px">${of.rodapeOS}</p>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;padding-top:20px;border-top:1px solid #ddd">
       <div style="text-align:center"><div style="border-top:1px solid #000;padding-top:8px;font-size:12px">Assinatura do cliente</div></div>
       <div style="text-align:center"><div style="border-top:1px solid #000;padding-top:8px;font-size:12px">Responsável pela oficina</div></div>
@@ -1979,10 +1995,11 @@ function buildDocOS(o){
 function buildDocOrcamento(o){
   const c=DB.clientes().find(x=>x.id===o.clienteId)||{};
   const v=DB.veiculos().find(x=>x.id===o.veiculoId)||{};
+  const of=dadosOficina;
   return `<div style="font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto">
-    <div style="text-align:center;border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:20px">
-      <h1 style="font-size:22px;margin:0">🔧 MecânicaPro</h1>
-      <h2 style="font-size:16px;margin:4px 0;color:#555">ORÇAMENTO</h2>
+    ${buildCabecalhoDoc(of)}
+    <div style="text-align:center;margin-bottom:16px">
+      <h2 style="font-size:16px;margin:0;color:#555">ORÇAMENTO</h2>
       <h3 style="font-size:20px;color:#f59e0b;margin:4px 0">${o.numero}</h3>
     </div>
     <table style="width:100%;margin-bottom:16px"><tr>
@@ -2010,7 +2027,7 @@ function buildDocOrcamento(o){
       ${o.desconto?`<tr><td style="padding:5px;font-size:13px">Desconto</td><td style="padding:5px;text-align:right;font-size:13px;color:red">-${fmt(o.desconto)}</td></tr>`:''}
       <tr style="border-top:2px solid #333"><td style="padding:8px;font-weight:700;font-size:15px">TOTAL</td><td style="padding:8px;text-align:right;font-weight:700;font-size:15px;color:#f59e0b">${fmt(o.total)}</td></tr>
     </table>
-    <p style="margin-top:20px;font-size:11px;color:#888;text-align:center">Este orçamento é válido até ${fmtDate(o.validade)}. Sujeito a alterações após aprovação.</p>
+    <p style="margin-top:16px;font-size:11px;color:#888;text-align:center">${of.rodapeOrcamento||'Este orçamento é válido até '+fmtDate(o.validade)+'. Sujeito a alterações após aprovação.'}</p>
   </div>`;
 }
 function printDoc(html){
@@ -2040,7 +2057,436 @@ function doPrint(){
   if(frame&&frame.contentWindow){frame.contentWindow.focus();frame.contentWindow.print()}
 }
 
-// Expõe funções ao escopo global (necessário para onclick nos atributos HTML)
+// ==================== DADOS DA OFICINA ====================
+let dadosOficina = {};
+
+async function carregarOficina(){
+  try {
+    const snap = await getDoc(doc(db, 'config', 'oficina'));
+    if(snap.exists()) dadosOficina = snap.data();
+  } catch(e){ dadosOficina = {}; }
+}
+
+async function renderOficina(){
+  const isSuporte = usuarioLogado?.perfil === 'suporte';
+  const isAdmin   = usuarioLogado?.perfil === 'admin';
+  if(!isSuporte && !isAdmin){ nav('dashboard'); return; }
+
+  await carregarOficina();
+  const o = dadosOficina;
+
+  document.getElementById('content').innerHTML = `
+  <div class="page-header">
+    <h2><i class="fas fa-store"></i> Dados da Oficina</h2>
+    <button class="btn btn-primary" onclick="salvarOficina()"><i class="fas fa-save"></i> Salvar</button>
+  </div>
+  <div class="grid-2">
+    <!-- Coluna esquerda -->
+    <div>
+      <div class="card mb-2">
+        <h3 class="mb-2"><i class="fas fa-id-card text-accent"></i> Identificação</h3>
+        <div class="form-group"><label>Nome da Oficina *</label><input id="of-nome" value="${o.nome||''}" placeholder="Ex: Oficina do João"></div>
+        <div class="form-group"><label>CNPJ / CPF</label><input id="of-cnpj" value="${o.cnpj||''}" placeholder="00.000.000/0001-00"></div>
+        <div class="form-group"><label>Inscrição Estadual</label><input id="of-ie" value="${o.ie||''}" placeholder="Opcional"></div>
+        <div class="form-group"><label>Responsável técnico</label><input id="of-resp" value="${o.responsavel||''}" placeholder="Nome do responsável"></div>
+      </div>
+      <div class="card mb-2">
+        <h3 class="mb-2"><i class="fas fa-map-marker-alt text-accent"></i> Endereço</h3>
+        <div class="form-group"><label>Endereço</label><input id="of-end" value="${o.endereco||''}" placeholder="Rua, número"></div>
+        <div class="grid-2">
+          <div class="form-group"><label>Bairro</label><input id="of-bairro" value="${o.bairro||''}" placeholder="Bairro"></div>
+          <div class="form-group"><label>CEP</label><input id="of-cep" value="${o.cep||''}" placeholder="00000-000"></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label>Cidade</label><input id="of-cidade" value="${o.cidade||''}" placeholder="Cidade"></div>
+          <div class="form-group"><label>Estado</label><input id="of-estado" value="${o.estado||''}" placeholder="SP"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="mb-2"><i class="fas fa-phone text-accent"></i> Contato</h3>
+        <div class="grid-2">
+          <div class="form-group"><label>Telefone</label><input id="of-tel" value="${o.telefone||''}" placeholder="(00) 0000-0000"></div>
+          <div class="form-group"><label>WhatsApp</label><input id="of-wpp" value="${o.whatsapp||''}" placeholder="(00) 00000-0000"></div>
+        </div>
+        <div class="form-group"><label>E-mail</label><input id="of-email" value="${o.email||''}" placeholder="contato@oficina.com.br"></div>
+        <div class="form-group"><label>Site</label><input id="of-site" value="${o.site||''}" placeholder="www.suaoficina.com.br"></div>
+      </div>
+    </div>
+    <!-- Coluna direita -->
+    <div>
+      <div class="card mb-2">
+        <h3 class="mb-2"><i class="fas fa-image text-accent"></i> Logotipo</h3>
+        <div id="logo-preview-wrap" style="margin-bottom:16px;min-height:100px;background:var(--bg3);border:2px dashed var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden">
+          ${o.logo
+            ? `<img src="${o.logo}" style="max-height:120px;max-width:100%;object-fit:contain;padding:8px">`
+            : `<div style="text-align:center;color:var(--text3)"><i class="fas fa-image" style="font-size:36px;margin-bottom:8px"></i><p class="text-sm">Nenhum logo enviado</p></div>`}
+        </div>
+        <input type="file" id="of-logo-input" accept="image/*" style="display:none" onchange="previewLogo(this)">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="document.getElementById('of-logo-input').click()">
+            <i class="fas fa-upload"></i> Enviar logo
+          </button>
+          ${o.logo ? `<button class="btn btn-danger btn-sm" onclick="removerLogo()" title="Remover logo"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
+        <p class="text-muted text-sm mt-2">Recomendado: PNG ou JPG com fundo transparente ou branco. Máximo 500KB.</p>
+      </div>
+      <div class="card mb-2">
+        <h3 class="mb-2"><i class="fas fa-file-alt text-accent"></i> Texto nos Documentos</h3>
+        <div class="form-group"><label>Mensagem no rodapé do orçamento</label><textarea id="of-rodape-orc" placeholder="Ex: Este orçamento é válido por 15 dias...">${o.rodapeOrcamento||''}</textarea></div>
+        <div class="form-group"><label>Mensagem no rodapé da OS</label><textarea id="of-rodape-os" placeholder="Ex: Agradecemos a preferência...">${o.rodapeOS||''}</textarea></div>
+      </div>
+      <div class="card">
+        <h3 class="mb-2"><i class="fas fa-eye text-accent"></i> Pré-visualização do Cabeçalho</h3>
+        <div id="cabecalho-preview" style="background:#fff;border-radius:var(--radius);padding:16px;color:#000">
+          ${buildCabecalhoPreview(o)}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildCabecalhoPreview(o){
+  return `<div style="display:flex;align-items:center;gap:16px;border-bottom:2px solid #333;padding-bottom:12px">
+    ${o.logo ? `<img src="${o.logo}" style="height:60px;object-fit:contain">` : `<div style="width:60px;height:60px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px">🔧</div>`}
+    <div style="flex:1">
+      <div style="font-size:18px;font-weight:700;font-family:Arial">${o.nome||'Nome da Oficina'}</div>
+      ${o.cnpj?`<div style="font-size:12px;color:#555">CNPJ: ${o.cnpj}</div>`:''}
+      <div style="font-size:12px;color:#555">${[o.endereco,o.bairro,o.cidade,o.estado].filter(Boolean).join(' — ')}</div>
+      <div style="font-size:12px;color:#555">${[o.telefone,o.whatsapp,o.email].filter(Boolean).join(' | ')}</div>
+    </div>
+  </div>`;
+}
+
+function previewLogo(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 512000){ toast('Logo muito grande. Use até 500KB.','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    dadosOficina._logoTemp = e.target.result;
+    document.getElementById('logo-preview-wrap').innerHTML =
+      `<img src="${e.target.result}" style="max-height:120px;max-width:100%;object-fit:contain;padding:8px">`;
+    // Atualiza preview do cabeçalho
+    document.getElementById('cabecalho-preview').innerHTML =
+      buildCabecalhoPreview({...dadosOficina, logo: e.target.result});
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerLogo(){
+  if(!confirm2('Remover o logotipo?')) return;
+  dadosOficina._logoTemp = '';
+  dadosOficina.logo = '';
+  document.getElementById('logo-preview-wrap').innerHTML =
+    `<div style="text-align:center;color:var(--text3)"><i class="fas fa-image" style="font-size:36px;margin-bottom:8px"></i><p class="text-sm">Nenhum logo enviado</p></div>`;
+  document.getElementById('cabecalho-preview').innerHTML = buildCabecalhoPreview({...dadosOficina, logo:''});
+}
+
+async function salvarOficina(){
+  const nome = document.getElementById('of-nome').value.trim();
+  if(!nome){ toast('Informe o nome da oficina','error'); return; }
+  const logoFinal = dadosOficina._logoTemp !== undefined ? dadosOficina._logoTemp : (dadosOficina.logo||'');
+  const data = {
+    nome,
+    cnpj:        document.getElementById('of-cnpj').value.trim(),
+    ie:          document.getElementById('of-ie').value.trim(),
+    responsavel: document.getElementById('of-resp').value.trim(),
+    endereco:    document.getElementById('of-end').value.trim(),
+    bairro:      document.getElementById('of-bairro').value.trim(),
+    cep:         document.getElementById('of-cep').value.trim(),
+    cidade:      document.getElementById('of-cidade').value.trim(),
+    estado:      document.getElementById('of-estado').value.trim(),
+    telefone:    document.getElementById('of-tel').value.trim(),
+    whatsapp:    document.getElementById('of-wpp').value.trim(),
+    email:       document.getElementById('of-email').value.trim(),
+    site:        document.getElementById('of-site').value.trim(),
+    rodapeOrcamento: document.getElementById('of-rodape-orc').value.trim(),
+    rodapeOS:    document.getElementById('of-rodape-os').value.trim(),
+    logo:        logoFinal,
+    atualizadoEm: today()
+  };
+  await setDoc(doc(db, 'config', 'oficina'), data);
+  dadosOficina = data;
+  delete dadosOficina._logoTemp;
+  // Atualiza nome no sidebar logo
+  atualizarSidebarOficina();
+  toast('✅ Dados da oficina salvos!');
+  renderOficina();
+}
+
+function atualizarSidebarOficina(){
+  const nome = dadosOficina.nome;
+  if(nome){
+    document.querySelector('.sidebar-logo span').textContent = nome;
+  }
+}
+
+function buildCabecalhoDoc(o){
+  if(!o || !o.nome) return `<div style="text-align:center;border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:20px">
+    <h1 style="font-size:22px;margin:0">🔧 MecânicaPro</h1></div>`;
+  return `<div style="display:flex;align-items:center;gap:16px;border-bottom:2px solid #333;padding-bottom:14px;margin-bottom:20px">
+    ${o.logo?`<img src="${o.logo}" style="height:70px;object-fit:contain">`:`<div style="width:56px;height:56px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:26px">🔧</div>`}
+    <div style="flex:1">
+      <div style="font-size:20px;font-weight:700;font-family:Arial">${o.nome}</div>
+      ${o.cnpj?`<div style="font-size:12px;color:#555;margin-top:2px">CNPJ: ${o.cnpj}${o.ie?' | IE: '+o.ie:''}</div>`:''}
+      ${[o.endereco,o.bairro,o.cidade,o.estado].filter(Boolean).length?`<div style="font-size:12px;color:#555">${[o.endereco,o.bairro,o.cidade+' - '+o.estado].filter(Boolean).join(', ')}</div>`:''}
+      ${[o.telefone,o.whatsapp].filter(Boolean).length?`<div style="font-size:12px;color:#555">📞 ${[o.telefone,o.whatsapp].filter(Boolean).join(' | ')}</div>`:''}
+      ${o.email?`<div style="font-size:12px;color:#555">✉️ ${o.email}${o.site?' | 🌐 '+o.site:''}</div>`:''}
+    </div>
+  </div>`;
+}
+// ==================== ESTOQUE ====================
+function renderEstoque(){
+  const pecas=DB.estoque();
+  const totalItens=pecas.length;
+  const totalQtd=pecas.reduce((a,p)=>a+(parseInt(p.qtd)||0),0);
+  const totalCusto=pecas.reduce((a,p)=>a+((parseFloat(p.valorPago)||0)*(parseInt(p.qtd)||0)),0);
+  const totalVenda=pecas.reduce((a,p)=>a+((parseFloat(p.valorVenda)||0)*(parseInt(p.qtd)||0)),0);
+  const estoqueBaixo=pecas.filter(p=>{const q=parseInt(p.qtd)||0;const m=parseInt(p.estoqueMin)||1;return q>0&&q<=m}).length;
+  const semEstoque=pecas.filter(p=>(parseInt(p.qtd)||0)===0).length;
+  document.getElementById('content').innerHTML=`
+  <div class="page-header">
+    <h2><i class="fas fa-boxes"></i> Estoque de Peças</h2>
+    <button class="btn btn-primary" onclick="modalEstoque()"><i class="fas fa-plus"></i> Nova Peça</button>
+  </div>
+  <div class="grid-5 mb-2">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="fas fa-boxes"></i></div>
+      <div class="stat-label">Itens cadastrados</div><div class="stat-value">${totalItens}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(168,85,247,.15);color:var(--purple)"><i class="fas fa-cubes"></i></div>
+      <div class="stat-label">Qtd. total</div><div class="stat-value">${totalQtd}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,.15);color:var(--accent)"><i class="fas fa-dollar-sign"></i></div>
+      <div class="stat-label">Custo total</div><div class="stat-value" style="font-size:16px">${fmt(totalCusto)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(34,197,94,.15);color:var(--green)"><i class="fas fa-tag"></i></div>
+      <div class="stat-label">Valor de venda</div><div class="stat-value" style="font-size:16px">${fmt(totalVenda)}</div>
+    </div>
+    <div class="stat-card" style="${semEstoque>0||estoqueBaixo>0?'border-color:var(--red)':''}">
+      <div class="stat-icon" style="background:rgba(239,68,68,.15);color:var(--red)"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="stat-label">Alertas</div>
+      <div class="stat-value" style="color:var(--red)">${semEstoque+estoqueBaixo}</div>
+      <div class="stat-sub">${semEstoque} zerados · ${estoqueBaixo} baixos</div>
+    </div>
+  </div>
+  <div class="filters">
+    <input type="text" id="f-est" placeholder="Buscar peça, categoria, fornecedor..." style="max-width:280px" oninput="renderTabEstoque()">
+    <select class="filter-select" id="f-est-cat" onchange="renderTabEstoque()">
+      <option value="">Todas as categorias</option>
+      ${[...new Set(pecas.map(p=>p.categoria).filter(Boolean))].sort().map(c=>`<option value="${c}">${c}</option>`).join('')}
+    </select>
+    <select class="filter-select" id="f-est-sit" onchange="renderTabEstoque()">
+      <option value="">Todas as situações</option>
+      <option value="ok">Em estoque</option>
+      <option value="baixo">Estoque baixo</option>
+      <option value="zero">Zerado</option>
+    </select>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Peça / Ref.</th><th>Categoria</th><th>Qtd</th><th>Mín.</th><th>Custo unit.</th><th>Venda unit.</th><th>Margem</th><th>Fornecedor</th><th>Compra</th><th>Situação</th><th></th></tr></thead>
+    <tbody id="tab-estoque"></tbody>
+  </table></div>`;
+  renderTabEstoque();
+}
+
+function renderTabEstoque(){
+  const q=(document.getElementById('f-est')?.value||'').toLowerCase();
+  const cat=document.getElementById('f-est-cat')?.value||'';
+  const sit=document.getElementById('f-est-sit')?.value||'';
+  const rows=DB.estoque().filter(p=>{
+    const qtd=parseInt(p.qtd)||0,min=parseInt(p.estoqueMin)||1;
+    const s=qtd===0?'zero':qtd<=min?'baixo':'ok';
+    return(!q||(p.nome||'').toLowerCase().includes(q)||(p.categoria||'').toLowerCase().includes(q)||(p.fornecedor||'').toLowerCase().includes(q))
+      &&(!cat||p.categoria===cat)&&(!sit||s===sit);
+  });
+  if(rows.length===0){
+    document.getElementById('tab-estoque').innerHTML=`<tr><td colspan="11"><div class="empty-state"><i class="fas fa-boxes"></i><p>Nenhuma peça encontrada</p></div></td></tr>`;
+    return;
+  }
+  document.getElementById('tab-estoque').innerHTML=rows.map(p=>{
+    const qtd=parseInt(p.qtd)||0,min=parseInt(p.estoqueMin)||1;
+    const s=qtd===0?'zero':qtd<=min?'baixo':'ok';
+    const bs=s==='ok'?'badge-green':s==='baixo'?'badge-yellow':'badge-red';
+    const ls=s==='ok'?'OK':s==='baixo'?'Baixo':'Zerado';
+    const vc=parseFloat(p.valorPago)||0,vv=parseFloat(p.valorVenda)||0;
+    const margem=vc>0&&vv>0?((vv-vc)/vc*100).toFixed(0)+'%':'-';
+    const mc=vv>vc?'color:var(--green)':vv>0&&vv<vc?'color:var(--red)':'';
+    const qc=qtd===0?'var(--red)':qtd<=min?'var(--accent)':'var(--green)';
+    return `<tr>
+      <td><span style="font-weight:600">${p.nome}</span>${p.referencia?`<br><span class="text-sm text-muted">${p.referencia}</span>`:''}</td>
+      <td>${p.categoria?`<span class="tag">${p.categoria}</span>`:'-'}</td>
+      <td style="text-align:center"><span style="font-weight:700;font-size:15px;color:${qc}">${qtd}</span></td>
+      <td style="text-align:center">${min}</td>
+      <td>${fmt(vc)}</td>
+      <td>${vv?fmt(vv):'-'}</td>
+      <td style="${mc};font-weight:500">${margem}</td>
+      <td class="text-sm">${p.fornecedor||'-'}</td>
+      <td class="text-sm">${fmtDate(p.dataCompra)||'-'}</td>
+      <td><span class="badge ${bs}">${ls}</span></td>
+      <td><div class="table-actions">
+        <button class="btn btn-ghost btn-sm" onclick="modalBaixa('${p.id}')" title="Dar baixa"><i class="fas fa-minus-circle" style="color:var(--red)"></i></button>
+        <button class="btn btn-ghost btn-sm" onclick="modalEntrada('${p.id}')" title="Entrada de estoque"><i class="fas fa-plus-circle" style="color:var(--green)"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="modalEstoque('${p.id}')" title="Editar"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deletarEstoque('${p.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function modalEstoque(id){
+  const p=id?DB.estoque().find(x=>x.id===id):{};
+  openModal(`<div class="modal modal-lg">
+    <div class="modal-header">
+      <h3><i class="fas fa-boxes text-accent"></i> ${id?'Editar':'Nova'} Peça</h3>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="grid-2">
+        <div class="form-group"><label>Nome da peça *</label><input id="ep-nome" value="${p.nome||''}" placeholder="Ex: Pastilha de freio dianteira"></div>
+        <div class="form-group"><label>Referência / Código</label><input id="ep-ref" value="${p.referencia||''}" placeholder="Ex: TRW-MCB780"></div>
+      </div>
+      <div class="grid-3">
+        <div class="form-group"><label>Categoria</label><input id="ep-cat" value="${p.categoria||''}" placeholder="Freios, Motor, Elétrica..."></div>
+        <div class="form-group"><label>Fornecedor</label><input id="ep-forn" value="${p.fornecedor||''}" placeholder="Nome do fornecedor"></div>
+        <div class="form-group"><label>Data da compra</label><input id="ep-data" type="date" value="${p.dataCompra||today()}"></div>
+      </div>
+      <div class="grid-4">
+        <div class="form-group"><label>Quantidade *</label><input id="ep-qtd" type="number" min="0" value="${p.qtd||1}"></div>
+        <div class="form-group"><label>Estoque mínimo</label><input id="ep-min" type="number" min="0" value="${p.estoqueMin||1}" placeholder="Alerta abaixo de..."></div>
+        <div class="form-group"><label>Valor pago (unit.) *</label><input id="ep-vc" type="number" step="0.01" value="${p.valorPago||''}" placeholder="0,00"></div>
+        <div class="form-group"><label>Valor de venda (unit.)</label><input id="ep-vv" type="number" step="0.01" value="${p.valorVenda||''}" placeholder="Opcional"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Localização / Prateleira</label><input id="ep-loc" value="${p.localizacao||''}" placeholder="Ex: Gaveta A3, Prateleira 2..."></div>
+        <div class="form-group"><label>Observações</label><input id="ep-obs" value="${p.obs||''}" placeholder="Observações sobre a peça"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEstoque('${id||''}')"><i class="fas fa-save"></i> Salvar</button>
+    </div>
+  </div>`);
+}
+
+async function salvarEstoque(id){
+  const nome=get('ep-nome'),qtd=get('ep-qtd'),vc=get('ep-vc');
+  if(!nome||qtd===''||!vc){toast('Preencha nome, quantidade e valor pago','error');return}
+  const base=id?DB.estoque().find(x=>x.id===id):{id:'est_'+Date.now()};
+  const item={...base,nome,referencia:get('ep-ref'),categoria:get('ep-cat'),fornecedor:get('ep-forn'),dataCompra:get('ep-data'),qtd:parseInt(qtd),estoqueMin:parseInt(get('ep-min')||1),valorPago:parseFloat(vc),valorVenda:parseFloat(get('ep-vv')||0)||0,localizacao:get('ep-loc'),obs:get('ep-obs'),atualizadoEm:today()};
+  await DB.save('estoque',item);
+  closeModal();renderEstoque();toast('Peça salva!');
+}
+
+function modalBaixa(id){
+  const p=DB.estoque().find(x=>x.id===id);if(!p)return;
+  const qtd=parseInt(p.qtd)||0;
+  openModal(`<div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-minus-circle" style="color:var(--red)"></i> Dar Baixa — ${p.nome}</h3>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="card-sm mb-2" style="display:flex;justify-content:space-between;align-items:center">
+        <span class="text-muted">Estoque atual</span>
+        <span style="font-weight:700;font-size:20px;color:${qtd===0?'var(--red)':'var(--text)'}">${qtd} un.</span>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Quantidade a baixar *</label>
+          <input id="baixa-qtd" type="number" min="1" max="${qtd}" value="1">
+        </div>
+        <div class="form-group"><label>Motivo</label>
+          <select id="baixa-motivo">
+            <option value="uso_os">Usado em OS</option>
+            <option value="venda">Venda balcão</option>
+            <option value="perda">Perda / Avaria</option>
+            <option value="devolucao">Devolução ao fornecedor</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>OS vinculada (opcional)</label>
+        <select id="baixa-os">
+          <option value="">Nenhuma</option>
+          ${DB.ordens().filter(o=>!['entregue','cancelada'].includes(o.status)).map(o=>`<option value="${o.id}">${o.numero} — ${nomeCliente(o.clienteId)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Observação</label><textarea id="baixa-obs" style="min-height:60px" placeholder="Opcional"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarBaixa('${id}')"><i class="fas fa-minus-circle"></i> Confirmar Baixa</button>
+    </div>
+  </div>`);
+}
+
+async function confirmarBaixa(id){
+  const p=DB.estoque().find(x=>x.id===id);if(!p)return;
+  const qtdB=parseInt(document.getElementById('baixa-qtd').value||0);
+  if(!qtdB||qtdB<1){toast('Informe a quantidade','error');return}
+  const qtdA=parseInt(p.qtd)||0;
+  if(qtdB>qtdA){toast(`Estoque insuficiente. Disponível: ${qtdA} un.`,'error');return}
+  const mov={id:'mov_'+Date.now(),tipo:'saida',pecaId:id,pecaNome:p.nome,qtd:qtdB,motivo:document.getElementById('baixa-motivo').value,osId:document.getElementById('baixa-os').value,obs:document.getElementById('baixa-obs').value,data:today(),valorUnitario:p.valorPago||0};
+  await DB.save('estoque_mov',mov);
+  await DB.save('estoque',{...p,qtd:qtdA-qtdB,atualizadoEm:today()});
+  closeModal();renderEstoque();
+  toast(`✅ Baixa de ${qtdB} un. realizada!`);
+  if(qtdA-qtdB<=(parseInt(p.estoqueMin)||1)&&qtdA-qtdB>0)
+    setTimeout(()=>toast(`⚠️ Atenção: "${p.nome}" com estoque baixo!`,'error'),1500);
+  if(qtdA-qtdB===0)
+    setTimeout(()=>toast(`🔴 "${p.nome}" zerou o estoque!`,'error'),1500);
+}
+
+function modalEntrada(id){
+  const p=DB.estoque().find(x=>x.id===id);if(!p)return;
+  openModal(`<div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-plus-circle" style="color:var(--green)"></i> Entrada — ${p.nome}</h3>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="card-sm mb-2" style="display:flex;justify-content:space-between;align-items:center">
+        <span class="text-muted">Estoque atual</span>
+        <span style="font-weight:700;font-size:20px">${parseInt(p.qtd)||0} un.</span>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Quantidade a adicionar *</label><input id="ent-qtd" type="number" min="1" value="1"></div>
+        <div class="form-group"><label>Novo valor pago (unit.)</label><input id="ent-vc" type="number" step="0.01" value="${p.valorPago||''}" placeholder="Deixe vazio para manter atual"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label>Fornecedor</label><input id="ent-forn" value="${p.fornecedor||''}" placeholder="Fornecedor desta compra"></div>
+        <div class="form-group"><label>Data da compra</label><input id="ent-data" type="date" value="${today()}"></div>
+      </div>
+      <div class="form-group"><label>Observação / Nota fiscal</label><textarea id="ent-obs" style="min-height:60px" placeholder="NF, observações..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmarEntrada('${id}')"><i class="fas fa-plus-circle"></i> Confirmar Entrada</button>
+    </div>
+  </div>`);
+}
+
+async function confirmarEntrada(id){
+  const p=DB.estoque().find(x=>x.id===id);if(!p)return;
+  const qtdE=parseInt(document.getElementById('ent-qtd').value||0);
+  if(!qtdE||qtdE<1){toast('Informe a quantidade','error');return}
+  const novoVc=parseFloat(document.getElementById('ent-vc').value||0);
+  const forn=document.getElementById('ent-forn').value;
+  const dataC=document.getElementById('ent-data').value;
+  const mov={id:'mov_'+Date.now(),tipo:'entrada',pecaId:id,pecaNome:p.nome,qtd:qtdE,motivo:'compra',obs:document.getElementById('ent-obs').value,data:dataC||today(),valorUnitario:novoVc||p.valorPago||0};
+  await DB.save('estoque_mov',mov);
+  await DB.save('estoque',{...p,qtd:(parseInt(p.qtd)||0)+qtdE,valorPago:novoVc||p.valorPago,fornecedor:forn||p.fornecedor,dataCompra:dataC||p.dataCompra,atualizadoEm:today()});
+  closeModal();renderEstoque();toast(`✅ Entrada de ${qtdE} un. registrada!`);
+}
+
+async function deletarEstoque(id){
+  if(!confirm2('Excluir esta peça do estoque?'))return;
+  await DB.remove('estoque',id);renderEstoque();toast('Peça excluída');
+}
+
 Object.assign(window, {
   doLogin, doLogout, nav, toggleSidebar, closeSidebar,
   modalCliente, salvarCliente, deletarCliente, verCliente,
@@ -2055,7 +2501,10 @@ Object.assign(window, {
   quickSearchDash, globalSearch, closeModal, doPrint,
   loadVeiculosCli, calcGarFim,
   renderUsuarios, modalUsuario, salvarUsuario, deletarUsuario, toggleUsuario,
-  renderLicenca, renovarPlano, bloquearLicenca, desbloquearLicenca, salvarLicencaManual, acessoAdminLicenca
+  renderLicenca, renovarPlano, bloquearLicenca, desbloquearLicenca, salvarLicencaManual, acessoAdminLicenca,
+  renderOficina, salvarOficina, previewLogo, removerLogo,
+  renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
+  modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque
 });
 </script>
 </body>
