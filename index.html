@@ -403,8 +403,7 @@ async function doLogin(){
       btn.disabled = false;
       return;
     }
-    // Busca usuário no Firestore
-    await DB.load('usuarios');
+    // Busca usuário no cache (já carregado no loadAllData)
     const usr = cache.usuarios.find(x => x.usuario === u && x.senha === p && x.ativo !== false);
     if(usr){
       usuarioLogado = usr;
@@ -424,26 +423,6 @@ async function doLogin(){
   }
 }
 
-function entrarNoSistema(){
-  const isSuporte = usuarioLogado.perfil === 'suporte';
-  const isAdmin   = usuarioLogado.perfil === 'admin';
-  // Sidebar: nome e perfil
-  document.getElementById('sidebar-user-nome').textContent = usuarioLogado.nome || usuarioLogado.usuario;
-  document.getElementById('sidebar-user-perfil').textContent =
-    isSuporte ? 'Suporte' : (isAdmin ? 'Administrador' : 'Operador');
-  document.getElementById('sidebar-avatar').textContent =
-    (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
-  // Menu Administração: só suporte vê Usuários E Licença
-  document.getElementById('nav-usuarios-wrap').style.display = isSuporte ? 'block' : 'none';
-  // Menu Dados da Oficina: suporte e admin
-  document.getElementById('nav-oficina-wrap').style.display = (isSuporte || isAdmin) ? 'block' : 'none';
-  document.getElementById('login-page').style.display = 'none';
-  document.getElementById('main').style.display = 'flex';
-  // Atualiza nome da oficina no sidebar se disponível
-  atualizarSidebarOficina();
-  nav('dashboard');
-}
-
 async function loadAllData(){
   await Promise.all([
     DB.load('clientes'),
@@ -452,12 +431,32 @@ async function loadAllData(){
     DB.load('ordens'),
     DB.load('garantias'),
     DB.load('estoque'),
+    DB.load('usuarios'),
     carregarOficina(),
   ]);
 }
 
+function entrarNoSistema(){
+  const isSuporte = usuarioLogado.perfil === 'suporte';
+  const isAdmin   = usuarioLogado.perfil === 'admin';
+  document.getElementById('sidebar-user-nome').textContent = usuarioLogado.nome || usuarioLogado.usuario;
+  document.getElementById('sidebar-user-perfil').textContent =
+    isSuporte ? 'Suporte' : (isAdmin ? 'Administrador' : 'Operador');
+  document.getElementById('sidebar-avatar').textContent =
+    (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
+  document.getElementById('nav-usuarios-wrap').style.display = isSuporte ? 'block' : 'none';
+  document.getElementById('nav-oficina-wrap').style.display = (isSuporte || isAdmin) ? 'block' : 'none';
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('main').style.display = 'flex';
+  atualizarSidebarOficina();
+  // Salva sessão para restaurar ao recarregar
+  sessionStorage.setItem('mp_session', JSON.stringify(usuarioLogado));
+  nav('dashboard');
+}
+
 function doLogout(){
   usuarioLogado = null;
+  sessionStorage.removeItem('mp_session');
   document.getElementById('login-user').value = '';
   document.getElementById('login-pass').value = '';
   const btn = document.querySelector('#login-page .btn-primary');
@@ -466,7 +465,40 @@ function doLogout(){
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('main').style.display = 'none';
 }
+
+// Tenta restaurar sessão ao carregar a página
+async function tentarRestaurarSessao(){
+  const saved = sessionStorage.getItem('mp_session');
+  if(!saved) return false;
+  try {
+    const usr = JSON.parse(saved);
+    if(!usr || !usr.usuario) return false;
+    // Verifica licença para usuários não-suporte
+    if(usr.perfil !== 'suporte'){
+      const licResult = await verificarLicenca();
+      if(!licResult.permitido){
+        sessionStorage.removeItem('mp_session');
+        mostrarTelaBloqueio(licResult);
+        return true;
+      }
+    }
+    usuarioLogado = usr;
+    const btn = document.querySelector('#login-page .btn-primary');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restaurando sessão...';
+    btn.disabled = true;
+    await loadAllData();
+    entrarNoSistema();
+    return true;
+  } catch(e) {
+    sessionStorage.removeItem('mp_session');
+    return false;
+  }
+}
+
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+// Executa ao carregar a página
+tentarRestaurarSessao();
 
 // ==================== LICENÇA ====================
 const SUPER_ADMIN = { usuario: 'superadmin', senha: 'MecPro@2024#Master' };
@@ -719,7 +751,6 @@ function mostrarAvisoLicenca(diasRestantes){
   }
 }
 function renderUsuarios(){
-  // Só suporte pode acessar
   if(!usuarioLogado || usuarioLogado.perfil !== 'suporte'){ nav('dashboard'); return; }
   document.getElementById('content').innerHTML=`
   <div class="page-header">
@@ -915,6 +946,8 @@ function renderDashboard(){
   const execucao=os.filter(x=>x.status==='execucao').length;
   const finalizadas=os.filter(x=>x.status==='finalizada').length;
   const orcPend=orc.filter(x=>x.status==='pendente').length;
+  const orcAprov=orc.filter(x=>x.status==='aprovado').length;
+  const orcTotal=orc.length;
   const t=today();
   const garVenc=gar.filter(x=>{const d=diffDays(t,x.dataFim);return d>=0&&d<=30&&x.status==='ativa'}).length;
   const faturamento=os.filter(x=>['finalizada','entregue'].includes(x.status)).reduce((a,b)=>a+(parseFloat(b.total)||0),0);
@@ -936,7 +969,8 @@ function renderDashboard(){
     <div class="stat-card" style="cursor:pointer" onclick="nav('orcamentos')">
       <div class="stat-icon" style="background:rgba(59,130,246,.15);color:var(--blue)"><i class="fas fa-file-alt"></i></div>
       <div class="stat-label">Orçamentos</div>
-      <div class="stat-value" style="color:var(--blue)">${orcPend}</div>
+      <div class="stat-value" style="color:var(--blue)">${orcTotal}</div>
+      <div class="stat-sub">${orcPend} pendente(s) · ${orcAprov} aprovado(s)</div>
     </div>
     <div class="stat-card" style="cursor:pointer" onclick="nav('ordens')">
       <div class="stat-icon" style="background:rgba(168,85,247,.15);color:var(--purple)"><i class="fas fa-tools"></i></div>
@@ -2504,7 +2538,8 @@ Object.assign(window, {
   renderLicenca, renovarPlano, bloquearLicenca, desbloquearLicenca, salvarLicencaManual, acessoAdminLicenca,
   renderOficina, salvarOficina, previewLogo, removerLogo,
   renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
-  modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque
+  modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque,
+  tentarRestaurarSessao
 });
 </script>
 </body>
