@@ -444,7 +444,7 @@ function entrarNoSistema(){
     isSuporte ? 'Suporte' : (isAdmin ? 'Administrador' : 'Operador');
   document.getElementById('sidebar-avatar').textContent =
     (usuarioLogado.nome || usuarioLogado.usuario)[0].toUpperCase();
-  document.getElementById('nav-usuarios-wrap').style.display = isSuporte ? 'block' : 'none';
+  document.getElementById('nav-usuarios-wrap').style.display = (isSuporte || isAdmin) ? 'block' : 'none';
   document.getElementById('nav-oficina-wrap').style.display = (isSuporte || isAdmin) ? 'block' : 'none';
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('main').style.display = 'flex';
@@ -751,12 +751,17 @@ function mostrarAvisoLicenca(diasRestantes){
   }
 }
 function renderUsuarios(){
-  if(!usuarioLogado || usuarioLogado.perfil !== 'suporte'){ nav('dashboard'); return; }
+  const isSuporte = usuarioLogado?.perfil === 'suporte';
+  const isAdmin   = usuarioLogado?.perfil === 'admin';
+  if(!isSuporte && !isAdmin){ nav('dashboard'); return; }
   document.getElementById('content').innerHTML=`
   <div class="page-header">
     <h2><i class="fas fa-user-shield"></i> Gerenciar Usuários</h2>
     <button class="btn btn-primary" onclick="modalUsuario()"><i class="fas fa-plus"></i> Novo Usuário</button>
   </div>
+  ${!isSuporte?`<div class="card-sm mb-2" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)">
+    <p class="text-sm"><i class="fas fa-info-circle text-accent"></i> Como <strong>Administrador</strong> você pode cadastrar e gerenciar <strong>Operadores</strong>. Para criar outros administradores, contate o Suporte.</p>
+  </div>`:''}
   <div class="table-wrap"><table>
     <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th></th></tr></thead>
     <tbody id="tab-usuarios"></tbody>
@@ -765,33 +770,45 @@ function renderUsuarios(){
 }
 
 function renderTabUsuarios(){
+  const isSuporte = usuarioLogado?.perfil === 'suporte';
   const lista = DB.usuarios();
-  // Linha do master (fixo, não editável)
-  const masterRow = `<tr>
+  // Linha do suporte — só aparece para o próprio suporte
+  const masterRow = isSuporte ? `<tr>
     <td><span style="font-weight:600">Suporte</span> <span class="badge badge-yellow" style="margin-left:4px">Sistema</span></td>
     <td>suporte</td>
     <td><span class="badge badge-purple">Suporte</span></td>
     <td><span class="badge badge-green">Ativo</span></td>
     <td><div class="table-actions"><span class="text-muted text-sm"><i class="fas fa-lock"></i> Protegido</span></div></td>
-  </tr>`;
-  const rows = lista.map(u=>`<tr>
-    <td style="font-weight:500">${u.nome||'-'}</td>
-    <td>${u.usuario}</td>
-    <td><span class="badge ${u.perfil==='admin'?'badge-blue':'badge-gray'}">${u.perfil==='admin'?'Administrador':'Operador'}</span></td>
-    <td>${u.ativo!==false?'<span class="badge badge-green">Ativo</span>':'<span class="badge badge-red">Inativo</span>'}</td>
-    <td><div class="table-actions">
-      <button class="btn btn-ghost btn-sm btn-icon" onclick="modalUsuario('${u.id}')" title="Editar"><i class="fas fa-edit"></i></button>
-      <button class="btn btn-danger btn-sm btn-icon" onclick="toggleUsuario('${u.id}')" title="${u.ativo!==false?'Desativar':'Ativar'}">
-        <i class="fas fa-${u.ativo!==false?'ban':'check'}"></i>
-      </button>
-      <button class="btn btn-danger btn-sm btn-icon" onclick="deletarUsuario('${u.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
-    </div></td>
-  </tr>`).join('');
-  document.getElementById('tab-usuarios').innerHTML = masterRow + (rows || `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-users"></i><p>Nenhum usuário adicional cadastrado</p></div></td></tr>`);
+  </tr>` : '';
+  // Admin só vê operadores; suporte vê todos
+  const listaFiltrada = isSuporte ? lista : lista.filter(u => u.perfil !== 'admin');
+  const rows = listaFiltrada.map(u=>{
+    const podeEditar = isSuporte || u.perfil === 'operador';
+    return `<tr>
+      <td style="font-weight:500">${u.nome||'-'}</td>
+      <td>${u.usuario}</td>
+      <td><span class="badge ${u.perfil==='admin'?'badge-blue':'badge-gray'}">${u.perfil==='admin'?'Administrador':'Operador'}</span></td>
+      <td>${u.ativo!==false?'<span class="badge badge-green">Ativo</span>':'<span class="badge badge-red">Inativo</span>'}</td>
+      <td><div class="table-actions">
+        ${podeEditar?`<button class="btn btn-ghost btn-sm btn-icon" onclick="modalUsuario('${u.id}')" title="Editar"><i class="fas fa-edit"></i></button>`:''}
+        ${podeEditar?`<button class="btn btn-danger btn-sm btn-icon" onclick="toggleUsuario('${u.id}')" title="${u.ativo!==false?'Desativar':'Ativar'}"><i class="fas fa-${u.ativo!==false?'ban':'check'}"></i></button>`:''}
+        ${isSuporte?`<button class="btn btn-danger btn-sm btn-icon" onclick="deletarUsuario('${u.id}')" title="Excluir"><i class="fas fa-trash"></i></button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+  const empty = `<tr><td colspan="5"><div class="empty-state"><i class="fas fa-users"></i><p>Nenhum usuário cadastrado</p></div></td></tr>`;
+  document.getElementById('tab-usuarios').innerHTML = masterRow + (rows || empty);
 }
 
 function modalUsuario(id){
+  const isSuporte = usuarioLogado?.perfil === 'suporte';
   const u = id ? DB.usuarios().find(x=>x.id===id) : {};
+  // Admin não pode editar admins
+  if(!isSuporte && id && u.perfil === 'admin'){ toast('Sem permissão para editar administradores','error'); return; }
+  const perfilOpts = isSuporte
+    ? `<option value="operador"${(u.perfil||'operador')==='operador'?' selected':''}>Operador</option>
+       <option value="admin"${u.perfil==='admin'?' selected':''}>Administrador</option>`
+    : `<option value="operador" selected>Operador</option>`;
   openModal(`<div class="modal">
     <div class="modal-header">
       <h3>${id?'Editar':'Novo'} Usuário</h3>
@@ -813,9 +830,8 @@ function modalUsuario(id){
       </div>
       <div class="grid-2">
         <div class="form-group"><label>Perfil *</label>
-          <select id="u-perfil">
-            <option value="operador"${(u.perfil||'operador')==='operador'?' selected':''}>Operador</option>
-            <option value="admin"${u.perfil==='admin'?' selected':''}>Administrador</option>
+          <select id="u-perfil" ${!isSuporte?'disabled':''}>
+            ${perfilOpts}
           </select>
         </div>
         <div class="form-group"><label>Status</label>
@@ -828,7 +844,8 @@ function modalUsuario(id){
       <div class="card-sm" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)">
         <p class="text-sm"><i class="fas fa-info-circle text-accent"></i> <strong>Perfis:</strong></p>
         <p class="text-sm text-muted mt-2"><strong>Operador:</strong> acessa clientes, veículos, OS e orçamentos.</p>
-        <p class="text-sm text-muted"><strong>Administrador:</strong> acesso completo incluindo relatórios.</p>
+        <p class="text-sm text-muted"><strong>Administrador:</strong> acesso completo incluindo relatórios e usuários.</p>
+        ${!isSuporte?'<p class="text-sm text-muted" style="margin-top:6px"><i class="fas fa-lock"></i> Apenas o Suporte pode criar Administradores.</p>':''}
       </div>
     </div>
     <div class="modal-footer">
@@ -839,18 +856,21 @@ function modalUsuario(id){
 }
 
 async function salvarUsuario(id){
+  const isSuporte = usuarioLogado?.perfil === 'suporte';
   const nome = get('u-nome');
   const usuario = get('u-usuario');
   const senha = document.getElementById('u-senha').value;
   const senha2 = document.getElementById('u-senha2').value;
-  const perfil = get('u-perfil');
+  // Se admin, força perfil operador independente do select
+  const perfil = isSuporte ? get('u-perfil') : 'operador';
   const ativo = get('u-ativo') !== 'false';
 
   if(!nome || !usuario){ toast('Preencha nome e usuário','error'); return; }
   if(!id && !senha){ toast('Informe a senha','error'); return; }
   if(senha && senha !== senha2){ toast('As senhas não coincidem','error'); return; }
   if(senha && senha.length < 6){ toast('A senha deve ter ao menos 6 caracteres','error'); return; }
-  // Verifica conflito de usuário
+  // Admin não pode criar/editar admins
+  if(!isSuporte && perfil === 'admin'){ toast('Sem permissão para criar Administradores','error'); return; }
   const existente = DB.usuarios().find(x => x.usuario === usuario && x.id !== id);
   if(existente || usuario === 'suporte'){ toast('Este nome de usuário já está em uso','error'); return; }
 
@@ -1907,8 +1927,16 @@ function renderRelatorios(){
   const ultimoMes=os.filter(x=>x.dataEntrada>=today30);
   const gar=DB.garantias().map(g=>({...g,status:calcGarStatus(g)}));
   const garVenc30=gar.filter(g=>{const d=diffDays(today(),g.dataFim);return d>=0&&d<=30&&g.status==='ativa'});
+
+  // Estoque stats
+  const movs=cache.estoque_mov||[];
+  const totalSaidas=movs.filter(m=>m.tipo==='saida').reduce((a,m)=>a+(parseInt(m.qtd)||0),0);
+  const totalEntradas=movs.filter(m=>m.tipo==='entrada').reduce((a,m)=>a+(parseInt(m.qtd)||0),0);
+  const custoSaidas=movs.filter(m=>m.tipo==='saida').reduce((a,m)=>a+((parseFloat(m.valorUnitario)||0)*(parseInt(m.qtd)||0)),0);
+
   document.getElementById('content').innerHTML=`
   <div class="page-header"><h2><i class="fas fa-chart-bar"></i> Relatórios</h2></div>
+
   <div class="grid-4 mb-2">
     <div class="stat-card"><div class="stat-icon" style="background:rgba(34,197,94,.15);color:var(--green)"><i class="fas fa-dollar-sign"></i></div>
       <div class="stat-label">Faturamento total</div><div class="stat-value" style="color:var(--green);font-size:18px">${fmt(faturamento)}</div></div>
@@ -1919,6 +1947,7 @@ function renderRelatorios(){
     <div class="stat-card"><div class="stat-icon" style="background:rgba(168,85,247,.15);color:var(--purple)"><i class="fas fa-clipboard-list"></i></div>
       <div class="stat-label">OS (último mês)</div><div class="stat-value">${ultimoMes.length}</div></div>
   </div>
+
   <div class="grid-2 mb-2">
     <div class="card">
       <h3 class="mb-2"><i class="fas fa-tags text-accent"></i> Serviços Mais Realizados</h3>
@@ -1937,23 +1966,25 @@ function renderRelatorios(){
         </div>`).join('')}
     </div>
   </div>
+
   <div class="card mb-2">
     <h3 class="mb-2"><i class="fas fa-shield-alt text-accent"></i> Garantias Vencendo em 30 dias (${garVenc30.length})</h3>
     ${garVenc30.length===0?'<p class="text-muted text-sm">Nenhuma garantia vencendo em 30 dias.</p>':
       `<div class="table-wrap"><table>
         <tr><th>Item</th><th>Tipo</th><th>OS</th><th>Vencimento</th><th>Dias restantes</th></tr>
         ${garVenc30.map(g=>{
-          const os=DB.ordens().find(x=>x.id===g.osId);
-          return `<tr><td>${g.item}</td><td>${g.tipo}</td><td>${os?os.numero:'-'}</td><td>${fmtDate(g.dataFim)}</td><td><span class="badge badge-yellow">${diffDays(today(),g.dataFim)} dias</span></td></tr>`;
+          const osv=DB.ordens().find(x=>x.id===g.osId);
+          return `<tr><td>${g.item}</td><td>${g.tipo}</td><td>${osv?osv.numero:'-'}</td><td>${fmtDate(g.dataFim)}</td><td><span class="badge badge-yellow">${diffDays(today(),g.dataFim)} dias</span></td></tr>`;
         }).join('')}
       </table></div>`}
   </div>
-  <div class="card">
+
+  <div class="card mb-2">
     <h3 class="mb-2"><i class="fas fa-history text-accent"></i> Últimos Atendimentos (30 dias)</h3>
     ${ultimoMes.length===0?'<p class="text-muted text-sm">Nenhuma OS no último mês.</p>':
       `<div class="table-wrap"><table>
         <tr><th>OS</th><th>Data</th><th>Cliente</th><th>Placa</th><th>Total</th><th>Status</th></tr>
-        ${ultimoMes.reverse().map(o=>`<tr>
+        ${[...ultimoMes].reverse().map(o=>`<tr>
           <td class="text-accent">${o.numero}</td>
           <td>${fmtDate(o.dataEntrada)}</td>
           <td>${nomeCliente(o.clienteId)}</td>
@@ -1962,7 +1993,97 @@ function renderRelatorios(){
           <td>${statusOS(o.status)}</td>
         </tr>`).join('')}
       </table></div>`}
+  </div>
+
+  <!-- RELATÓRIO DE MOVIMENTAÇÕES DO ESTOQUE -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <h3><i class="fas fa-boxes text-accent"></i> Movimentações do Estoque</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select class="filter-select" id="f-mov-tipo" onchange="renderMovEstoque()">
+          <option value="">Entradas e Saídas</option>
+          <option value="entrada">Somente Entradas</option>
+          <option value="saida">Somente Saídas</option>
+        </select>
+        <select class="filter-select" id="f-mov-motivo" onchange="renderMovEstoque()">
+          <option value="">Todos os motivos</option>
+          <option value="uso_os">Usado em OS</option>
+          <option value="venda">Venda balcão</option>
+          <option value="perda">Perda / Avaria</option>
+          <option value="devolucao">Devolução</option>
+          <option value="compra">Compra</option>
+          <option value="outro">Outro</option>
+        </select>
+        <input type="date" id="f-mov-de" class="filter-select" onchange="renderMovEstoque()" placeholder="De" style="width:140px">
+        <input type="date" id="f-mov-ate" class="filter-select" onchange="renderMovEstoque()" placeholder="Até" style="width:140px">
+      </div>
+    </div>
+    <div class="grid-3 mb-2">
+      <div class="card-sm" style="text-align:center">
+        <div class="text-sm text-muted mb-1">Total de saídas (un.)</div>
+        <div style="font-size:22px;font-weight:700;color:var(--red)">${totalSaidas}</div>
+        <div class="text-sm text-muted">${fmt(custoSaidas)} em custo</div>
+      </div>
+      <div class="card-sm" style="text-align:center">
+        <div class="text-sm text-muted mb-1">Total de entradas (un.)</div>
+        <div style="font-size:22px;font-weight:700;color:var(--green)">${totalEntradas}</div>
+      </div>
+      <div class="card-sm" style="text-align:center">
+        <div class="text-sm text-muted mb-1">Total de movimentações</div>
+        <div style="font-size:22px;font-weight:700;color:var(--accent)">${movs.length}</div>
+      </div>
+    </div>
+    <div id="tab-mov-estoque">
+      <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Carregando...</p></div>
+    </div>
   </div>`;
+
+  // Carrega movimentações do Firestore e renderiza
+  DB.load('estoque_mov').then(()=>renderMovEstoque());
+}
+
+function renderMovEstoque(){
+  const tipo=document.getElementById('f-mov-tipo')?.value||'';
+  const motivo=document.getElementById('f-mov-motivo')?.value||'';
+  const de=document.getElementById('f-mov-de')?.value||'';
+  const ate=document.getElementById('f-mov-ate')?.value||'';
+  const motivoLabel={uso_os:'Usado em OS',venda:'Venda balcão',perda:'Perda / Avaria',devolucao:'Devolução',compra:'Compra',outro:'Outro'};
+
+  const rows=[...cache.estoque_mov].filter(m=>
+    (!tipo||m.tipo===tipo)&&
+    (!motivo||m.motivo===motivo)&&
+    (!de||m.data>=de)&&
+    (!ate||m.data<=ate)
+  ).sort((a,b)=>b.data.localeCompare(a.data));
+
+  const el=document.getElementById('tab-mov-estoque');
+  if(!el)return;
+  if(rows.length===0){
+    el.innerHTML='<p class="text-muted text-sm">Nenhuma movimentação encontrada.</p>';
+    return;
+  }
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Peça</th><th>Qtd</th><th>Motivo</th><th>OS vinculada</th><th>Valor unit.</th><th>Total</th><th>Obs.</th></tr></thead>
+    <tbody>
+    ${rows.map(m=>{
+      const osv=m.osId?DB.ordens().find(x=>x.id===m.osId):null;
+      const total=(parseFloat(m.valorUnitario)||0)*(parseInt(m.qtd)||0);
+      return `<tr>
+        <td>${fmtDate(m.data)}</td>
+        <td>${m.tipo==='entrada'
+          ?'<span class="badge badge-green"><i class="fas fa-arrow-down"></i> Entrada</span>'
+          :'<span class="badge badge-red"><i class="fas fa-arrow-up"></i> Saída</span>'}</td>
+        <td style="font-weight:500">${m.pecaNome||'-'}</td>
+        <td style="text-align:center;font-weight:700">${m.qtd}</td>
+        <td>${motivoLabel[m.motivo]||m.motivo||'-'}</td>
+        <td>${osv?`<span class="text-accent">${osv.numero}</span>`:'-'}</td>
+        <td>${m.valorUnitario?fmt(m.valorUnitario):'-'}</td>
+        <td style="font-weight:500">${total?fmt(total):'-'}</td>
+        <td class="text-sm text-muted">${m.obs||'-'}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table></div>`;
 }
 
 // ==================== UTILS ====================
@@ -2539,7 +2660,7 @@ Object.assign(window, {
   renderOficina, salvarOficina, previewLogo, removerLogo,
   renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
   modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque,
-  tentarRestaurarSessao
+  renderMovEstoque, tentarRestaurarSessao
 });
 </script>
 </body>
