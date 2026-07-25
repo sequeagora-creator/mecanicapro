@@ -202,33 +202,20 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <h2>MecânicaPro</h2>
     <p class="text-muted text-sm">Gestão de Oficina Mecânica</p>
   </div>
-
-  <!-- E-mail e senha (método principal) -->
   <div class="form-group">
     <label>E-mail</label>
-    <input type="email" id="login-user" placeholder="seu@email.com" autocomplete="email">
+    <input type="email" id="login-user" placeholder="seu@email.com">
   </div>
   <div class="form-group">
     <label>Senha</label>
-    <input type="password" id="login-pass" placeholder="Sua senha" autocomplete="current-password">
+    <input type="password" id="login-pass" placeholder="Sua senha">
   </div>
-  <button class="btn btn-primary" id="btn-login-senha" style="width:100%;justify-content:center;padding:10px" onclick="doLoginSenha()">
+  <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">
     <i class="fas fa-sign-in-alt"></i> Entrar
   </button>
-
-  <!-- Divisor -->
-  <div style="display:flex;align-items:center;gap:10px;margin:16px 0">
-    <div style="flex:1;height:1px;background:var(--border)"></div>
-    <span style="font-size:11px;color:var(--text3)">ou</span>
-    <div style="flex:1;height:1px;background:var(--border)"></div>
+  <div style="text-align:center;margin-top:12px">
+    <a href="javascript:void(0)" onclick="modalEsqueciSenha()" style="font-size:12px;color:var(--text3)">Esqueci minha senha</a>
   </div>
-
-  <!-- Botão Google (método alternativo) -->
-  <button class="btn" id="btn-google-login" style="width:100%;justify-content:center;padding:10px;background:#fff;color:#333;border:1px solid #ddd;font-size:14px;font-weight:500;gap:10px;border-radius:8px" onclick="loginComGoogle()">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px">
-    Entrar com Google
-  </button>
-
   <p class="text-muted text-sm mt-2" style="text-align:center">Acesso restrito à equipe autorizada</p>
 </div>
 </div>
@@ -324,7 +311,7 @@ table tr:hover td{background:rgba(255,255,255,.02)}
 // ==================== FIREBASE ====================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, signInWithRedirect, signInWithPopup, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, updatePassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCfWIfiCENfprG277M9NPtv5B5Az1gBx4s",
@@ -338,7 +325,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
 
 // Cache local para performance
 const cache = { clientes:[], veiculos:[], orcamentos:[], ordens:[], garantias:[], usuarios:[], estoque:[], estoque_mov:[] };
@@ -397,117 +383,55 @@ const DB = {
 };
 
 // ==================== AUTH ====================
-const MASTER = { email:'sequeagora@gmail.com', usuario:'suporte', senha:'Estrela3342@', nome:'Suporte', perfil:'suporte' };
-const SUPER_ADMIN = { usuario:'superadmin', senha:'MecPro@2024#Master' };
+const MASTER = { email:'suporte@mecanicapro.internal', usuario:'suporte', senha:'Estrela3342@', nome:'Suporte', perfil:'suporte' };
 
-function setLoading(loading, msg='Entrando...', btn='btn-login-senha'){
-  const el = document.getElementById(btn);
-  if(!el) return;
-  el.disabled = loading;
-  if(btn === 'btn-google-login'){
-    el.innerHTML = loading
-      ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
-      : `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px"> Entrar com Google`;
-  } else {
-    el.innerHTML = loading
-      ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
-      : `<i class="fas fa-sign-in-alt"></i> Entrar`;
-  }
-}
-
-// Login com e-mail e senha (Firebase Auth)
-async function doLoginSenha(){
+async function doLogin(){
   const email = document.getElementById('login-user').value.trim();
   const senha = document.getElementById('login-pass').value;
   if(!email||!senha){ alert('Preencha e-mail e senha.'); return; }
-  setLoading(true,'Entrando...','btn-login-senha');
+  const btn = document.querySelector('#login-page .btn-primary');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+  btn.disabled = true;
   try {
-    // Suporte master — bypass total
+    // Suporte master — login especial sem Firebase Auth
     if(email === MASTER.email && senha === MASTER.senha){
       usuarioLogado = MASTER;
       await loadAllData();
       entrarNoSistema();
       return;
     }
-    // Super admin emergência
-    if(email === SUPER_ADMIN.usuario && senha === SUPER_ADMIN.senha){
-      usuarioLogado = MASTER;
-      await loadAllData();
-      entrarNoSistema();
+    // Login via Firebase Authentication
+    await signInWithEmailAndPassword(auth, email, senha);
+    await DB.load('usuarios');
+    const usr = cache.usuarios.find(x => x.email === email && x.ativo !== false);
+    if(!usr){
+      await signOut(auth);
+      alert('Usuário não encontrado ou inativo. Contate o administrador.');
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+      btn.disabled = false;
       return;
     }
-    // Login Firebase Auth
-    const cred = await signInWithEmailAndPassword(auth, email, senha);
-    await processarLoginAutenticado(cred.user.email);
+    const licResult = await verificarLicenca();
+    if(!licResult.permitido){
+      await signOut(auth);
+      mostrarTelaBloqueio(licResult);
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+      btn.disabled = false;
+      return;
+    }
+    usuarioLogado = usr;
+    await loadAllData();
+    entrarNoSistema();
+    if(licResult.diasRestantes !== undefined) mostrarAvisoLicenca(licResult.diasRestantes);
   } catch(e){
-    setLoading(false,'','btn-login-senha');
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+    btn.disabled = false;
     if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'||e.code==='auth/user-not-found')
       alert('E-mail ou senha incorretos.');
     else if(e.code==='auth/too-many-requests')
       alert('Muitas tentativas. Aguarde alguns minutos.');
-    else if(e.code==='auth/invalid-email')
-      alert('E-mail inválido.');
     else alert('Erro ao entrar: '+e.message);
   }
-}
-
-// Login com Google
-async function loginComGoogle(){
-  setLoading(true,'Aguarde...','btn-google-login');
-  try {
-    // Tenta popup primeiro (mais rápido)
-    const result = await signInWithPopup(auth, googleProvider);
-    await processarLoginAutenticado(result.user.email);
-  } catch(e){
-    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'){
-      // Fallback para redirect se popup bloqueado
-      try { await signInWithRedirect(auth, googleProvider); } catch(e2){ setLoading(false,'','btn-google-login'); }
-    } else if(e.code==='auth/unauthorized-domain'){
-      setLoading(false,'','btn-google-login');
-      alert('Domínio não autorizado.\n\nNo Firebase:\nAuthentication → Settings → Authorized domains\nAdicione: sequeagora-creator.github.io');
-    } else {
-      setLoading(false,'','btn-google-login');
-      if(e.code !== 'auth/popup-closed-by-user') alert('Erro Google: '+e.message);
-    }
-  }
-}
-
-// Processa retorno do redirect Google (quando volta da página do Google)
-async function processarRedirectGoogle(){
-  try {
-    const result = await getRedirectResult(auth);
-    if(!result) return;
-    setLoading(true,'Verificando...','btn-google-login');
-    await processarLoginAutenticado(result.user.email);
-  } catch(e){
-    setLoading(false,'','btn-google-login');
-    if(e.code==='auth/unauthorized-domain')
-      alert('Domínio não autorizado no Firebase Auth.');
-  }
-}
-
-async function processarLoginAutenticado(email){
-  await DB.load('usuarios');
-  const usr = cache.usuarios.find(x => x.email === email && x.ativo !== false);
-  if(!usr){
-    try { await signOut(auth); } catch(e){}
-    setLoading(false,'','btn-login-senha');
-    setLoading(false,'','btn-google-login');
-    alert('Acesso não autorizado.\n\nO e-mail "'+email+'" não está cadastrado.\nContate o administrador.');
-    return;
-  }
-  const licResult = await verificarLicenca();
-  if(!licResult.permitido){
-    try { await signOut(auth); } catch(e){}
-    setLoading(false,'','btn-login-senha');
-    setLoading(false,'','btn-google-login');
-    mostrarTelaBloqueio(licResult);
-    return;
-  }
-  usuarioLogado = usr;
-  await loadAllData();
-  entrarNoSistema();
-  if(licResult.diasRestantes !== undefined) mostrarAvisoLicenca(licResult.diasRestantes);
 }
 
 async function loadAllData(){
@@ -528,7 +452,7 @@ function entrarNoSistema(){
   document.getElementById('sidebar-avatar').textContent =
     (usuarioLogado.nome||usuarioLogado.email||'U')[0].toUpperCase();
   document.getElementById('nav-usuarios-wrap').style.display = (isSuporte||isAdmin) ? 'block' : 'none';
-  document.getElementById('nav-oficina-wrap').style.display  = (isSuporte||isAdmin) ? 'block' : 'none';
+  document.getElementById('nav-oficina-wrap').style.display = (isSuporte||isAdmin) ? 'block' : 'none';
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('main').style.display = 'flex';
   atualizarSidebarOficina();
@@ -540,10 +464,13 @@ async function doLogout(){
   try { await signOut(auth); } catch(e){}
   usuarioLogado = null;
   sessionStorage.removeItem('mp_session');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  const btn = document.querySelector('#login-page .btn-primary');
+  btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar';
+  btn.disabled = false;
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('main').style.display = 'none';
-  setLoading(false,'','btn-login-senha');
-  setLoading(false,'','btn-google-login');
 }
 
 async function tentarRestaurarSessao(){
@@ -557,26 +484,44 @@ async function tentarRestaurarSessao(){
       if(!licResult.permitido){ sessionStorage.removeItem('mp_session'); mostrarTelaBloqueio(licResult); return true; }
     }
     usuarioLogado = usr;
-    setLoading(true,'Restaurando sessão...','btn-login-senha');
+    const btn = document.querySelector('#login-page .btn-primary');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restaurando sessão...';
+    btn.disabled = true;
     await loadAllData();
     entrarNoSistema();
     return true;
   } catch(e){ sessionStorage.removeItem('mp_session'); return false; }
 }
 
-// Compatibilidade
-async function doLogin(){ await doLoginSenha(); }
-async function doLoginSuporte(){ await doLoginSenha(); }
-function toggleSuporteLogin(){}
-function setBtnLoading(){}
+function modalEsqueciSenha(){
+  openModal(`<div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-key text-accent"></i> Recuperar Senha</h3>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted text-sm mb-2">Digite o e-mail cadastrado. Você receberá um link para redefinir sua senha.</p>
+      <div class="form-group"><label>E-mail</label><input id="rec-email" type="email" placeholder="seu@email.com"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="enviarRecuperacao()"><i class="fas fa-paper-plane"></i> Enviar link</button>
+    </div>
+  </div>`);
+}
 
-document.getElementById('login-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginSenha()});
+async function enviarRecuperacao(){
+  const email = document.getElementById('rec-email').value.trim();
+  if(!email){ toast('Informe o e-mail','error'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    closeModal();
+    toast('✅ Link de recuperação enviado para '+email);
+  } catch(e){ toast('Erro: '+e.message,'error'); }
+}
 
-// Ao carregar: restaura sessão ou processa redirect do Google
-(async ()=>{
-  const restaurou = await tentarRestaurarSessao();
-  if(!restaurou) await processarRedirectGoogle();
-})();
+document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+tentarRestaurarSessao();
 
 // ==================== LICENÇA ====================
 const SUPER_ADMIN = { usuario: 'superadmin', senha: 'MecPro@2024#Master' };
@@ -881,7 +826,8 @@ function renderTabUsuarios(){
 function modalUsuario(id){
   const isSuporte = usuarioLogado?.perfil === 'suporte';
   const u = id ? DB.usuarios().find(x=>x.id===id) : {};
-  if(!isSuporte && id && u?.perfil === 'admin'){ toast('Sem permissão para editar administradores','error'); return; }
+  // Admin não pode editar admins
+  if(!isSuporte && id && u.perfil === 'admin'){ toast('Sem permissão para editar administradores','error'); return; }
   const perfilOpts = isSuporte
     ? `<option value="operador"${(u.perfil||'operador')==='operador'?' selected':''}>Operador</option>
        <option value="admin"${u.perfil==='admin'?' selected':''}>Administrador</option>`
@@ -893,21 +839,18 @@ function modalUsuario(id){
     </div>
     <div class="modal-body">
       <div class="grid-2">
-        <div class="form-group"><label>Nome completo *</label>
-          <input id="u-nome" value="${u.nome||''}" placeholder="Nome do funcionário">
-        </div>
-        <div class="form-group"><label>E-mail *</label>
-          <input id="u-email" type="email" value="${u.email||''}" placeholder="email@exemplo.com" ${id?'readonly style="opacity:.6"':''}>
-        </div>
+        <div class="form-group"><label>Nome completo *</label><input id="u-nome" value="${u.nome||''}" placeholder="Nome do funcionário"></div>
+        <div class="form-group"><label>E-mail (login) *</label><input id="u-email" type="email" value="${u.email||''}" placeholder="email@oficina.com.br" ${id?'readonly style="opacity:.7"':''}></div>
       </div>
-      ${!id?`<div class="grid-2">
-        <div class="form-group"><label>Senha *</label>
-          <input id="u-senha" type="password" placeholder="Mínimo 6 caracteres">
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Senha ${id?'(deixe vazio para manter)':' *'}</label>
+          <input id="u-senha" type="password" placeholder="${id?'Nova senha (opcional)':'Mínimo 6 caracteres'}">
         </div>
-        <div class="form-group"><label>Confirmar senha *</label>
+        <div class="form-group"><label>Confirmar senha</label>
           <input id="u-senha2" type="password" placeholder="Repita a senha">
         </div>
-      </div>`:''}
+      </div>
       <div class="grid-2">
         <div class="form-group"><label>Perfil *</label>
           <select id="u-perfil" ${!isSuporte?'disabled':''}>
@@ -921,9 +864,10 @@ function modalUsuario(id){
           </select>
         </div>
       </div>
-      <div class="card-sm" style="background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3)">
-        <p class="text-sm"><i class="fas fa-info-circle" style="color:var(--blue)"></i> <strong>Formas de acesso</strong></p>
-        <p class="text-sm text-muted mt-2">O usuário pode entrar com <strong>e-mail e senha</strong> ou com <strong>Login Google</strong> usando o mesmo e-mail cadastrado.</p>
+      <div class="card-sm" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)">
+        <p class="text-sm"><i class="fas fa-info-circle text-accent"></i> <strong>Perfis:</strong></p>
+        <p class="text-sm text-muted mt-2"><strong>Operador:</strong> acessa clientes, veículos, OS e orçamentos.</p>
+        <p class="text-sm text-muted"><strong>Administrador:</strong> acesso completo incluindo relatórios e usuários.</p>
         ${!isSuporte?'<p class="text-sm text-muted" style="margin-top:6px"><i class="fas fa-lock"></i> Apenas o Suporte pode criar Administradores.</p>':''}
       </div>
     </div>
@@ -936,47 +880,46 @@ function modalUsuario(id){
 
 async function salvarUsuario(id){
   const isSuporte = usuarioLogado?.perfil === 'suporte';
-  const nome   = get('u-nome');
-  const email  = id ? (DB.usuarios().find(x=>x.id===id)?.email||'') : get('u-email');
-  const perfil = isSuporte ? get('u-perfil') : 'operador';
-  const ativo  = get('u-ativo') !== 'false';
+  const nome  = get('u-nome');
+  const email = id ? (DB.usuarios().find(x=>x.id===id)?.email||'') : get('u-email');
+  const senha = document.getElementById('u-senha').value;
+  const senha2= document.getElementById('u-senha2').value;
+  const perfil= isSuporte ? get('u-perfil') : 'operador';
+  const ativo = get('u-ativo') !== 'false';
 
   if(!nome||!email){ toast('Preencha nome e e-mail','error'); return; }
+  if(!id && !senha){ toast('Informe a senha','error'); return; }
+  if(senha && senha !== senha2){ toast('As senhas não coincidem','error'); return; }
+  if(senha && senha.length < 6){ toast('A senha deve ter ao menos 6 caracteres','error'); return; }
   if(!isSuporte && perfil === 'admin'){ toast('Sem permissão para criar Administradores','error'); return; }
+  const existente = DB.usuarios().find(x => x.email === email && x.id !== id);
+  if(existente){ toast('Este e-mail já está em uso','error'); return; }
 
-  if(!id){
-    // Criação: precisa de senha para Firebase Auth
-    const senha  = document.getElementById('u-senha')?.value||'';
-    const senha2 = document.getElementById('u-senha2')?.value||'';
-    if(!senha){ toast('Informe a senha','error'); return; }
-    if(senha !== senha2){ toast('As senhas não coincidem','error'); return; }
-    if(senha.length < 6){ toast('Senha deve ter ao menos 6 caracteres','error'); return; }
-    const existente = DB.usuarios().find(x => x.email === email);
-    if(existente){ toast('Este e-mail já está em uso','error'); return; }
-    try {
-      // Salva sessão atual para restaurar após createUser trocar o auth
-      const sessaoAtual = JSON.parse(sessionStorage.getItem('mp_session')||'null');
+  try {
+    if(!id){
+      // Cria usuário no Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, email, senha);
       const item = { id: cred.user.uid, nome, email, perfil, ativo };
       await DB.save('usuarios', item);
-      // Restaura sessão do admin/suporte
-      if(sessaoAtual && sessaoAtual.perfil === 'suporte'){
-        usuarioLogado = sessaoAtual;
-        sessionStorage.setItem('mp_session', JSON.stringify(sessaoAtual));
+      // Volta a logar o suporte/admin (createUser faz login automático)
+      toast('✅ Usuário criado! Refaça seu login pois o Firebase trocou a sessão.','error');
+    } else {
+      // Atualiza dados no Firestore
+      const base = DB.usuarios().find(x=>x.id===id);
+      const item = { ...base, nome, perfil, ativo };
+      await DB.save('usuarios', item);
+      if(senha){
+        // Atualiza senha — requer que o usuário esteja logado
+        // Para o suporte atualizar senha de outro usuário seria necessário Admin SDK
+        // Orientamos o usuário a usar "Esqueci minha senha"
+        toast('⚠️ Para alterar a senha do usuário, peça para ele usar "Esqueci minha senha" na tela de login.','error');
       }
-      closeModal(); renderTabUsuarios();
-      toast('✅ Usuário criado! Login: e-mail/senha ou Google com o mesmo e-mail.');
-    } catch(e){
-      if(e.code==='auth/email-already-in-use') toast('E-mail já existe no Firebase Auth','error');
-      else toast('Erro: '+e.message,'error');
     }
-  } else {
-    // Edição: só atualiza Firestore
-    const base = DB.usuarios().find(x=>x.id===id);
-    const item = { ...base, nome, perfil, ativo };
-    await DB.save('usuarios', item);
-    closeModal(); renderTabUsuarios();
-    toast('✅ Usuário atualizado!');
+    closeModal(); renderTabUsuarios(); if(!id) return;
+    toast(id ? 'Usuário atualizado!' : 'Usuário criado!');
+  } catch(e){
+    if(e.code==='auth/email-already-in-use') toast('E-mail já cadastrado no sistema de autenticação','error');
+    else toast('Erro: '+e.message,'error');
   }
 }
 
@@ -2759,7 +2702,7 @@ Object.assign(window, {
   renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
   modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque,
   renderMovEstoque, tentarRestaurarSessao,
-  loginComGoogle, doLoginSenha, doLogin, doLoginSuporte, toggleSuporteLogin
+  modalEsqueciSenha, enviarRecuperacao
 });
 </script>
 </body>
