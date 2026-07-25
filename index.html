@@ -203,27 +203,33 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <p class="text-muted text-sm">Gestão de Oficina Mecânica</p>
   </div>
 
-  <!-- Botão principal: Login com Google -->
-  <button class="btn" id="btn-google-login" style="width:100%;justify-content:center;padding:12px;background:#fff;color:#333;border:1px solid #ddd;font-size:15px;font-weight:500;gap:10px;border-radius:8px" onclick="loginComGoogle()">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px">
+  <!-- E-mail e senha (método principal) -->
+  <div class="form-group">
+    <label>E-mail</label>
+    <input type="email" id="login-user" placeholder="seu@email.com" autocomplete="email">
+  </div>
+  <div class="form-group">
+    <label>Senha</label>
+    <input type="password" id="login-pass" placeholder="Sua senha" autocomplete="current-password">
+  </div>
+  <button class="btn btn-primary" id="btn-login-senha" style="width:100%;justify-content:center;padding:10px" onclick="doLoginSenha()">
+    <i class="fas fa-sign-in-alt"></i> Entrar
+  </button>
+
+  <!-- Divisor -->
+  <div style="display:flex;align-items:center;gap:10px;margin:16px 0">
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <span style="font-size:11px;color:var(--text3)">ou</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+  </div>
+
+  <!-- Botão Google (método alternativo) -->
+  <button class="btn" id="btn-google-login" style="width:100%;justify-content:center;padding:10px;background:#fff;color:#333;border:1px solid #ddd;font-size:14px;font-weight:500;gap:10px;border-radius:8px" onclick="loginComGoogle()">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px">
     Entrar com Google
   </button>
 
   <p class="text-muted text-sm mt-2" style="text-align:center">Acesso restrito à equipe autorizada</p>
-
-  <!-- Acesso suporte (oculto) -->
-  <div style="text-align:center;margin-top:20px">
-    <button onclick="toggleSuporteLogin()" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer">
-      Acesso administrativo
-    </button>
-  </div>
-  <div id="suporte-login-wrap" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-    <div class="form-group"><label>E-mail</label><input type="email" id="login-user" placeholder="suporte@..."></div>
-    <div class="form-group"><label>Senha</label><input type="password" id="login-pass" placeholder="Senha"></div>
-    <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="doLoginSuporte()">
-      <i class="fas fa-sign-in-alt"></i> Entrar
-    </button>
-  </div>
 </div>
 </div>
 
@@ -391,100 +397,118 @@ const DB = {
 };
 
 // ==================== AUTH ====================
-const MASTER = { email:'suporte@mecanicapro.internal', usuario:'suporte', senha:'Estrela3342@', nome:'Suporte', perfil:'suporte' };
+const MASTER = { email:'sequeagora@gmail.com', usuario:'suporte', senha:'Estrela3342@', nome:'Suporte', perfil:'suporte' };
 const SUPER_ADMIN = { usuario:'superadmin', senha:'MecPro@2024#Master' };
 
-function toggleSuporteLogin(){
-  const w = document.getElementById('suporte-login-wrap');
-  w.style.display = w.style.display === 'none' ? 'block' : 'none';
-}
-
-function setBtnLoading(loading, msg='Entrando...'){
-  const btn = document.getElementById('btn-google-login');
-  if(!btn) return;
-  btn.disabled = loading;
-  btn.innerHTML = loading
-    ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
-    : `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;height:20px"> Entrar com Google`;
-}
-
-async function loginComGoogle(){
-  setBtnLoading(true, 'Redirecionando...');
-  try {
-    await signInWithRedirect(auth, googleProvider);
-    // A página vai redirecionar para o Google e voltar automaticamente
-  } catch(e){
-    setBtnLoading(false);
-    alert('Erro ao iniciar login com Google: ' + e.message);
+function setLoading(loading, msg='Entrando...', btn='btn-login-senha'){
+  const el = document.getElementById(btn);
+  if(!el) return;
+  el.disabled = loading;
+  if(btn === 'btn-google-login'){
+    el.innerHTML = loading
+      ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
+      : `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px"> Entrar com Google`;
+  } else {
+    el.innerHTML = loading
+      ? `<i class="fas fa-spinner fa-spin"></i> ${msg}`
+      : `<i class="fas fa-sign-in-alt"></i> Entrar`;
   }
 }
 
-// Processa o retorno do redirect do Google
-async function processarRedirectGoogle(){
+// Login com e-mail e senha (Firebase Auth)
+async function doLoginSenha(){
+  const email = document.getElementById('login-user').value.trim();
+  const senha = document.getElementById('login-pass').value;
+  if(!email||!senha){ alert('Preencha e-mail e senha.'); return; }
+  setLoading(true,'Entrando...','btn-login-senha');
   try {
-    const result = await getRedirectResult(auth);
-    if(!result) return; // Não veio de um redirect
-    setBtnLoading(true, 'Verificando acesso...');
-    const email = result.user.email;
-    await processarLoginAutenticado(email);
+    // Suporte master — bypass total
+    if(email === MASTER.email && senha === MASTER.senha){
+      usuarioLogado = MASTER;
+      await loadAllData();
+      entrarNoSistema();
+      return;
+    }
+    // Super admin emergência
+    if(email === SUPER_ADMIN.usuario && senha === SUPER_ADMIN.senha){
+      usuarioLogado = MASTER;
+      await loadAllData();
+      entrarNoSistema();
+      return;
+    }
+    // Login Firebase Auth
+    const cred = await signInWithEmailAndPassword(auth, email, senha);
+    await processarLoginAutenticado(cred.user.email);
   } catch(e){
-    setBtnLoading(false);
-    if(e.code === 'auth/unauthorized-domain'){
-      alert('Domínio não autorizado.\n\nAcesse Firebase → Authentication → Settings → Authorized domains e adicione:\nsequeagora-creator.github.io');
-    } else if(e.code !== 'auth/operation-not-supported-in-this-environment'){
-      alert('Erro no login com Google: ' + e.message);
+    setLoading(false,'','btn-login-senha');
+    if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'||e.code==='auth/user-not-found')
+      alert('E-mail ou senha incorretos.');
+    else if(e.code==='auth/too-many-requests')
+      alert('Muitas tentativas. Aguarde alguns minutos.');
+    else if(e.code==='auth/invalid-email')
+      alert('E-mail inválido.');
+    else alert('Erro ao entrar: '+e.message);
+  }
+}
+
+// Login com Google
+async function loginComGoogle(){
+  setLoading(true,'Aguarde...','btn-google-login');
+  try {
+    // Tenta popup primeiro (mais rápido)
+    const result = await signInWithPopup(auth, googleProvider);
+    await processarLoginAutenticado(result.user.email);
+  } catch(e){
+    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'){
+      // Fallback para redirect se popup bloqueado
+      try { await signInWithRedirect(auth, googleProvider); } catch(e2){ setLoading(false,'','btn-google-login'); }
+    } else if(e.code==='auth/unauthorized-domain'){
+      setLoading(false,'','btn-google-login');
+      alert('Domínio não autorizado.\n\nNo Firebase:\nAuthentication → Settings → Authorized domains\nAdicione: sequeagora-creator.github.io');
+    } else {
+      setLoading(false,'','btn-google-login');
+      if(e.code !== 'auth/popup-closed-by-user') alert('Erro Google: '+e.message);
     }
   }
 }
 
+// Processa retorno do redirect Google (quando volta da página do Google)
+async function processarRedirectGoogle(){
+  try {
+    const result = await getRedirectResult(auth);
+    if(!result) return;
+    setLoading(true,'Verificando...','btn-google-login');
+    await processarLoginAutenticado(result.user.email);
+  } catch(e){
+    setLoading(false,'','btn-google-login');
+    if(e.code==='auth/unauthorized-domain')
+      alert('Domínio não autorizado no Firebase Auth.');
+  }
+}
+
 async function processarLoginAutenticado(email){
-  // Carrega usuários do Firestore
   await DB.load('usuarios');
   const usr = cache.usuarios.find(x => x.email === email && x.ativo !== false);
   if(!usr){
-    await signOut(auth);
-    setBtnLoading(false);
-    alert('Acesso não autorizado.\n\nSeu e-mail ('+email+') não está cadastrado no sistema.\nContate o administrador para solicitar acesso.');
+    try { await signOut(auth); } catch(e){}
+    setLoading(false,'','btn-login-senha');
+    setLoading(false,'','btn-google-login');
+    alert('Acesso não autorizado.\n\nO e-mail "'+email+'" não está cadastrado.\nContate o administrador.');
     return;
   }
-  // Verifica licença
   const licResult = await verificarLicenca();
   if(!licResult.permitido){
-    await signOut(auth);
-    setBtnLoading(false);
+    try { await signOut(auth); } catch(e){}
+    setLoading(false,'','btn-login-senha');
+    setLoading(false,'','btn-google-login');
     mostrarTelaBloqueio(licResult);
     return;
   }
   usuarioLogado = usr;
   await loadAllData();
   entrarNoSistema();
-  setBtnLoading(false);
   if(licResult.diasRestantes !== undefined) mostrarAvisoLicenca(licResult.diasRestantes);
 }
-
-// Login suporte (bypass — sem Firebase Auth)
-async function doLoginSuporte(){
-  const email = document.getElementById('login-user').value.trim();
-  const senha = document.getElementById('login-pass').value;
-  if(!email||!senha){ alert('Preencha e-mail e senha.'); return; }
-  if(email === MASTER.email && senha === MASTER.senha){
-    usuarioLogado = MASTER;
-    await loadAllData();
-    entrarNoSistema();
-    return;
-  }
-  // Super admin de emergência
-  if(email === SUPER_ADMIN.usuario && senha === SUPER_ADMIN.senha){
-    usuarioLogado = MASTER;
-    await loadAllData();
-    entrarNoSistema();
-    return;
-  }
-  alert('Credenciais de suporte inválidas.');
-}
-
-// Alias para compatibilidade com keydown
-async function doLogin(){ await doLoginSuporte(); }
 
 async function loadAllData(){
   await Promise.all([
@@ -518,7 +542,8 @@ async function doLogout(){
   sessionStorage.removeItem('mp_session');
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('main').style.display = 'none';
-  setBtnLoading(false);
+  setLoading(false,'','btn-login-senha');
+  setLoading(false,'','btn-google-login');
 }
 
 async function tentarRestaurarSessao(){
@@ -532,17 +557,22 @@ async function tentarRestaurarSessao(){
       if(!licResult.permitido){ sessionStorage.removeItem('mp_session'); mostrarTelaBloqueio(licResult); return true; }
     }
     usuarioLogado = usr;
-    setBtnLoading(true, 'Restaurando sessão...');
+    setLoading(true,'Restaurando sessão...','btn-login-senha');
     await loadAllData();
     entrarNoSistema();
-    setBtnLoading(false);
     return true;
   } catch(e){ sessionStorage.removeItem('mp_session'); return false; }
 }
 
-document.getElementById('login-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginSuporte()});
+// Compatibilidade
+async function doLogin(){ await doLoginSenha(); }
+async function doLoginSuporte(){ await doLoginSenha(); }
+function toggleSuporteLogin(){}
+function setBtnLoading(){}
 
-// Ao carregar: tenta restaurar sessão ou processar retorno do Google
+document.getElementById('login-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginSenha()});
+
+// Ao carregar: restaura sessão ou processa redirect do Google
 (async ()=>{
   const restaurou = await tentarRestaurarSessao();
   if(!restaurou) await processarRedirectGoogle();
@@ -866,10 +896,18 @@ function modalUsuario(id){
         <div class="form-group"><label>Nome completo *</label>
           <input id="u-nome" value="${u.nome||''}" placeholder="Nome do funcionário">
         </div>
-        <div class="form-group"><label>E-mail Google *</label>
-          <input id="u-email" type="email" value="${u.email||''}" placeholder="email@gmail.com" ${id?'readonly style="opacity:.6"':''}>
+        <div class="form-group"><label>E-mail *</label>
+          <input id="u-email" type="email" value="${u.email||''}" placeholder="email@exemplo.com" ${id?'readonly style="opacity:.6"':''}>
         </div>
       </div>
+      ${!id?`<div class="grid-2">
+        <div class="form-group"><label>Senha *</label>
+          <input id="u-senha" type="password" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="form-group"><label>Confirmar senha *</label>
+          <input id="u-senha2" type="password" placeholder="Repita a senha">
+        </div>
+      </div>`:''}
       <div class="grid-2">
         <div class="form-group"><label>Perfil *</label>
           <select id="u-perfil" ${!isSuporte?'disabled':''}>
@@ -883,9 +921,9 @@ function modalUsuario(id){
           </select>
         </div>
       </div>
-      <div class="card-sm" style="background:rgba(66,133,244,.08);border-color:rgba(66,133,244,.3)">
-        <p class="text-sm"><i class="fas fa-shield-alt" style="color:#4285f4"></i> <strong>Login com Google</strong></p>
-        <p class="text-sm text-muted mt-2">O usuário entra clicando em <strong>"Entrar com Google"</strong> usando a conta Google deste e-mail. Nenhuma senha é necessária.</p>
+      <div class="card-sm" style="background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.3)">
+        <p class="text-sm"><i class="fas fa-info-circle" style="color:var(--blue)"></i> <strong>Formas de acesso</strong></p>
+        <p class="text-sm text-muted mt-2">O usuário pode entrar com <strong>e-mail e senha</strong> ou com <strong>Login Google</strong> usando o mesmo e-mail cadastrado.</p>
         ${!isSuporte?'<p class="text-sm text-muted" style="margin-top:6px"><i class="fas fa-lock"></i> Apenas o Suporte pode criar Administradores.</p>':''}
       </div>
     </div>
@@ -905,14 +943,41 @@ async function salvarUsuario(id){
 
   if(!nome||!email){ toast('Preencha nome e e-mail','error'); return; }
   if(!isSuporte && perfil === 'admin'){ toast('Sem permissão para criar Administradores','error'); return; }
-  const existente = DB.usuarios().find(x => x.email === email && x.id !== id);
-  if(existente){ toast('Este e-mail já está em uso','error'); return; }
 
-  const base = id ? DB.usuarios().find(x=>x.id===id) : { id:'usr_'+Date.now() };
-  const item = { ...base, nome, email, perfil, ativo };
-  await DB.save('usuarios', item);
-  closeModal(); renderTabUsuarios();
-  toast(id ? '✅ Usuário atualizado!' : '✅ Usuário criado! O acesso será liberado quando fizer login com o Google.');
+  if(!id){
+    // Criação: precisa de senha para Firebase Auth
+    const senha  = document.getElementById('u-senha')?.value||'';
+    const senha2 = document.getElementById('u-senha2')?.value||'';
+    if(!senha){ toast('Informe a senha','error'); return; }
+    if(senha !== senha2){ toast('As senhas não coincidem','error'); return; }
+    if(senha.length < 6){ toast('Senha deve ter ao menos 6 caracteres','error'); return; }
+    const existente = DB.usuarios().find(x => x.email === email);
+    if(existente){ toast('Este e-mail já está em uso','error'); return; }
+    try {
+      // Salva sessão atual para restaurar após createUser trocar o auth
+      const sessaoAtual = JSON.parse(sessionStorage.getItem('mp_session')||'null');
+      const cred = await createUserWithEmailAndPassword(auth, email, senha);
+      const item = { id: cred.user.uid, nome, email, perfil, ativo };
+      await DB.save('usuarios', item);
+      // Restaura sessão do admin/suporte
+      if(sessaoAtual && sessaoAtual.perfil === 'suporte'){
+        usuarioLogado = sessaoAtual;
+        sessionStorage.setItem('mp_session', JSON.stringify(sessaoAtual));
+      }
+      closeModal(); renderTabUsuarios();
+      toast('✅ Usuário criado! Login: e-mail/senha ou Google com o mesmo e-mail.');
+    } catch(e){
+      if(e.code==='auth/email-already-in-use') toast('E-mail já existe no Firebase Auth','error');
+      else toast('Erro: '+e.message,'error');
+    }
+  } else {
+    // Edição: só atualiza Firestore
+    const base = DB.usuarios().find(x=>x.id===id);
+    const item = { ...base, nome, perfil, ativo };
+    await DB.save('usuarios', item);
+    closeModal(); renderTabUsuarios();
+    toast('✅ Usuário atualizado!');
+  }
 }
 
 async function toggleUsuario(id){
@@ -2694,7 +2759,7 @@ Object.assign(window, {
   renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
   modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque,
   renderMovEstoque, tentarRestaurarSessao,
-  loginComGoogle, doLoginSuporte, toggleSuporteLogin, processarRedirectGoogle
+  loginComGoogle, doLoginSenha, doLogin, doLoginSuporte, toggleSuporteLogin
 });
 </script>
 </body>
