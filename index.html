@@ -318,7 +318,7 @@ table tr:hover td{background:rgba(255,255,255,.02)}
 // ==================== FIREBASE ====================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, signInWithRedirect, signInWithPopup, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCfWIfiCENfprG277M9NPtv5B5Az1gBx4s",
@@ -409,17 +409,31 @@ function setBtnLoading(loading, msg='Entrando...'){
 }
 
 async function loginComGoogle(){
-  setBtnLoading(true);
+  setBtnLoading(true, 'Redirecionando...');
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    await signInWithRedirect(auth, googleProvider);
+    // A página vai redirecionar para o Google e voltar automaticamente
+  } catch(e){
+    setBtnLoading(false);
+    alert('Erro ao iniciar login com Google: ' + e.message);
+  }
+}
+
+// Processa o retorno do redirect do Google
+async function processarRedirectGoogle(){
+  try {
+    const result = await getRedirectResult(auth);
+    if(!result) return; // Não veio de um redirect
+    setBtnLoading(true, 'Verificando acesso...');
     const email = result.user.email;
     await processarLoginAutenticado(email);
   } catch(e){
     setBtnLoading(false);
-    if(e.code === 'auth/popup-closed-by-user') return;
-    if(e.code === 'auth/unauthorized-domain')
-      alert('Domínio não autorizado no Firebase. Adicione seu domínio em Authentication → Settings → Authorized domains.');
-    else alert('Erro ao entrar com Google: ' + e.message);
+    if(e.code === 'auth/unauthorized-domain'){
+      alert('Domínio não autorizado.\n\nAcesse Firebase → Authentication → Settings → Authorized domains e adicione:\nsequeagora-creator.github.io');
+    } else if(e.code !== 'auth/operation-not-supported-in-this-environment'){
+      alert('Erro no login com Google: ' + e.message);
+    }
   }
 }
 
@@ -527,7 +541,12 @@ async function tentarRestaurarSessao(){
 }
 
 document.getElementById('login-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginSuporte()});
-tentarRestaurarSessao();
+
+// Ao carregar: tenta restaurar sessão ou processar retorno do Google
+(async ()=>{
+  const restaurou = await tentarRestaurarSessao();
+  if(!restaurou) await processarRedirectGoogle();
+})();
 
 // ==================== LICENÇA ====================
 const SUPER_ADMIN = { usuario: 'superadmin', senha: 'MecPro@2024#Master' };
@@ -2675,7 +2694,7 @@ Object.assign(window, {
   renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
   modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque,
   renderMovEstoque, tentarRestaurarSessao,
-  loginComGoogle, doLoginSuporte, toggleSuporteLogin
+  loginComGoogle, doLoginSuporte, toggleSuporteLogin, processarRedirectGoogle
 });
 </script>
 </body>
