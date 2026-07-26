@@ -212,7 +212,7 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <label>Senha</label>
     <input type="password" id="login-pass" placeholder="Sua senha" autocomplete="current-password">
   </div>
-  <button class="btn btn-primary" id="btn-login-senha" style="width:100%;justify-content:center;padding:10px" onclick="doLoginSenha()">
+  <button class="btn btn-primary" id="btn-login-senha" style="width:100%;justify-content:center;padding:10px">
     <i class="fas fa-sign-in-alt"></i> Entrar
   </button>
 
@@ -224,7 +224,7 @@ table tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 
   <!-- Botão Google (método alternativo) -->
-  <button class="btn" id="btn-google-login" style="width:100%;justify-content:center;padding:10px;background:#fff;color:#333;border:1px solid #ddd;font-size:14px;font-weight:500;gap:10px;border-radius:8px" onclick="loginComGoogle()">
+  <button class="btn" id="btn-google-login" style="width:100%;justify-content:center;padding:10px;background:#fff;color:#333;border:1px solid #ddd;font-size:14px;font-weight:500;gap:10px;border-radius:8px">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px">
     Entrar com Google
   </button>
@@ -251,7 +251,7 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <div id="licenca-admin-wrap" style="display:none;margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:16px">
       <div class="form-group"><label>E-mail</label><input id="lic-admin-user" type="email" placeholder="sequeagora@gmail.com"></div>
       <div class="form-group"><label>Senha</label><input type="password" id="lic-admin-pass" placeholder="Senha"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="acessoAdminLicenca()">
+      <button class="btn btn-primary" id="btn-lic-admin" style="width:100%;justify-content:center">
         <i class="fas fa-unlock"></i> Acessar painel de licença
       </button>
     </div>
@@ -572,13 +572,12 @@ async function tentarRestaurarSessao(){
   } catch(e){ sessionStorage.removeItem('mp_session'); return false; }
 }
 
-// Compatibilidade
-async function doLogin(){ await doLoginSenha(); }
-async function doLoginSuporte(){ await doLoginSenha(); }
-function toggleSuporteLogin(){}
-function setBtnLoading(){}
-
-document.getElementById('login-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLoginSenha()});
+// Todos os event listeners dentro do módulo (evita problema de escopo com type="module")
+document.getElementById('btn-login-senha')?.addEventListener('click', doLoginSenha);
+document.getElementById('btn-google-login')?.addEventListener('click', loginComGoogle);
+document.getElementById('btn-lic-admin')?.addEventListener('click', acessoAdminLicenca);
+document.getElementById('login-pass')?.addEventListener('keydown', e=>{ if(e.key==='Enter') doLoginSenha(); });
+document.getElementById('lic-admin-pass')?.addEventListener('keydown', e=>{ if(e.key==='Enter') acessoAdminLicenca(); });
 
 // Ao carregar: restaura sessão ou processa redirect do Google
 (async ()=>{
@@ -2787,7 +2786,7 @@ Object.assign(window, {
   renderEstoque, renderTabEstoque, modalEstoque, salvarEstoque,
   modalBaixa, confirmarBaixa, modalEntrada, confirmarEntrada, deletarEstoque,
   renderMovEstoque, tentarRestaurarSessao,
-  loginComGoogle, doLoginSenha, doLogin, doLoginSuporte, toggleSuporteLogin
+  loginComGoogle, doLoginSenha, acessoAdminLicenca
 });
 </script>
 </body>
