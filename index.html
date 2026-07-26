@@ -452,23 +452,28 @@ async function doLoginSenha(){
   }
 }
 
-// Login com Google
 async function loginComGoogle(){
-  setLoading(true,'Aguarde...','btn-google-login');
+  // Feedback imediato antes de qualquer operação async
+  const btn = document.getElementById('btn-google-login');
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecionando para o Google...';
+    btn.style.background = '#f0f0f0';
+  }
   try {
-    // Tenta popup primeiro (mais rápido)
-    const result = await signInWithPopup(auth, googleProvider);
-    await processarLoginAutenticado(result.user.email);
+    // Usa redirect — único método garantido em GitHub Pages
+    await signInWithRedirect(auth, googleProvider);
+    // A linha abaixo só executa se o redirect falhar imediatamente
   } catch(e){
-    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'){
-      // Fallback para redirect se popup bloqueado
-      try { await signInWithRedirect(auth, googleProvider); } catch(e2){ setLoading(false,'','btn-google-login'); }
-    } else if(e.code==='auth/unauthorized-domain'){
-      setLoading(false,'','btn-google-login');
-      alert('Domínio não autorizado.\n\nNo Firebase:\nAuthentication → Settings → Authorized domains\nAdicione: sequeagora-creator.github.io');
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px"> Entrar com Google';
+      btn.style.background = '#fff';
+    }
+    if(e.code === 'auth/unauthorized-domain'){
+      alert('Domínio não autorizado no Firebase.\n\nVá em:\nFirebase → Authentication → Settings → Authorized domains\nAdicione: sequeagora-creator.github.io');
     } else {
-      setLoading(false,'','btn-google-login');
-      if(e.code !== 'auth/popup-closed-by-user') alert('Erro Google: '+e.message);
+      alert('Erro: ' + e.message + '\nCódigo: ' + e.code);
     }
   }
 }
@@ -572,12 +577,21 @@ async function tentarRestaurarSessao(){
   } catch(e){ sessionStorage.removeItem('mp_session'); return false; }
 }
 
-// Todos os event listeners dentro do módulo (evita problema de escopo com type="module")
-document.getElementById('btn-login-senha')?.addEventListener('click', doLoginSenha);
-document.getElementById('btn-google-login')?.addEventListener('click', loginComGoogle);
-document.getElementById('btn-lic-admin')?.addEventListener('click', acessoAdminLicenca);
-document.getElementById('login-pass')?.addEventListener('keydown', e=>{ if(e.key==='Enter') doLoginSenha(); });
-document.getElementById('lic-admin-pass')?.addEventListener('keydown', e=>{ if(e.key==='Enter') acessoAdminLicenca(); });
+// Bind de todos os eventos de login dentro do módulo
+(function bindLoginEvents(){
+  const btnSenha  = document.getElementById('btn-login-senha');
+  const btnGoogle = document.getElementById('btn-google-login');
+  const passInput = document.getElementById('login-pass');
+
+  if(btnSenha)  btnSenha.addEventListener('click',  () => doLoginSenha());
+  if(btnGoogle) btnGoogle.addEventListener('click', () => loginComGoogle());
+  if(passInput) passInput.addEventListener('keydown', e => { if(e.key==='Enter') doLoginSenha(); });
+
+  const btnLicAdmin  = document.getElementById('btn-lic-admin');
+  const licAdminPass = document.getElementById('lic-admin-pass');
+  if(btnLicAdmin)  btnLicAdmin.addEventListener('click',   () => acessoAdminLicenca());
+  if(licAdminPass) licAdminPass.addEventListener('keydown', e => { if(e.key==='Enter') acessoAdminLicenca(); });
+})();
 
 // Ao carregar: restaura sessão ou processa redirect do Google
 (async ()=>{
