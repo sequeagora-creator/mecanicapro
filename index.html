@@ -203,12 +203,12 @@ table tr:hover td{background:rgba(255,255,255,.02)}
     <p class="text-muted text-sm">Gestão de Oficina Mecânica</p>
   </div>
   <div class="form-group">
-    <label>Usuário ou E-mail</label>
-    <input type="text" id="login-user" placeholder="Usuário ou e-mail" autocomplete="username">
+    <label>Usuário</label>
+    <input type="text" id="login-user" placeholder="Usuário">
   </div>
   <div class="form-group">
     <label>Senha</label>
-    <input type="password" id="login-pass" placeholder="Senha" autocomplete="current-password">
+    <input type="password" id="login-pass" placeholder="Senha">
   </div>
   <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">
     <i class="fas fa-sign-in-alt"></i> Entrar
@@ -377,8 +377,7 @@ const DB = {
 };
 
 // ==================== AUTH ====================
-const MASTER = { usuario: 'suporte', email: 'sequeagora@gmail.com', senha: 'Estrela3342@', nome: 'Suporte', perfil: 'suporte' };
-const SUPER_ADMIN = { usuario: 'superadmin', senha: 'MecPro@2024#Master' };
+const MASTER = { usuario: 'suporte', senha: 'Estrela3342@', nome: 'Suporte', perfil: 'suporte' };
 
 async function doLogin(){
   const u = document.getElementById('login-user').value.trim();
@@ -388,11 +387,10 @@ async function doLogin(){
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
   btn.disabled = true;
   try {
-    // Verifica suporte master (aceita usuário OU e-mail)
-    const isMaster = (u === MASTER.usuario || u === MASTER.email) && p === MASTER.senha;
-    const isSuperAdmin = u === SUPER_ADMIN.usuario && p === SUPER_ADMIN.senha;
-    if(isMaster || isSuperAdmin){
+    // Verifica master primeiro (não está no banco)
+    if(u === MASTER.usuario && p === MASTER.senha){
       usuarioLogado = MASTER;
+      // Master bypassa verificação de licença
       await loadAllData();
       entrarNoSistema();
       return;
@@ -405,15 +403,13 @@ async function doLogin(){
       btn.disabled = false;
       return;
     }
-    // Busca por usuário OU e-mail no Firestore
-    await DB.load('usuarios');
-    const usr = cache.usuarios.find(x =>
-      (x.usuario === u || x.email === u) && x.senha === p && x.ativo !== false
-    );
+    // Busca usuário no cache (já carregado no loadAllData)
+    const usr = cache.usuarios.find(x => x.usuario === u && x.senha === p && x.ativo !== false);
     if(usr){
       usuarioLogado = usr;
       await loadAllData();
       entrarNoSistema();
+      // Avisa se licença está vencendo
       if(licResult.diasRestantes !== undefined) mostrarAvisoLicenca(licResult.diasRestantes);
     } else {
       alert('Usuário ou senha incorretos, ou usuário inativo.');
